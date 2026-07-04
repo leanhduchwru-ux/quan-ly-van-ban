@@ -228,10 +228,10 @@ try:
         st.warning(f"⚠️ **Trích yếu văn bản ĐI KHÔNG TRÙNG với văn bản ĐẾN:** {khong_trung_count}")
         
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📑 Phân loại Nhóm Văn bản (Theo Trích yếu)")
+    st.markdown("#### 📑 Phân loại Nhóm Văn bản đến (Theo Trích yếu)")
     
-    # 2. Phân loại số lượng (gộp cả đến và đi)
-    all_summaries = [r['Trích yếu'] for r in incoming_docs] + [r['Trích yếu'] for r in outgoing_docs]
+    # 2. Phân loại số lượng (chỉ văn bản đến)
+    all_summaries = [r['Trích yếu'] for r in incoming_docs]
     
     keyword_mapping = {
         "quyết định": "Quyết định",
