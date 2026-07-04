@@ -6,7 +6,7 @@ import datetime
 import io
 import re
 
-st.set_page_config(page_title="Hệ Thống Quản Lý Văn Bản", page_icon="📄", layout="wide")
+st.set_page_config(page_title="Quản lý văn bản Công ty TNHH MTV Khai thác công trình Thủy lợi Hải Dương", page_icon="📄", layout="wide")
 
 st.markdown("""
 <style>
@@ -19,7 +19,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Hệ Thống Quản Lý Văn Bản Điều Hành")
+st.title("Quản lý văn bản Công ty TNHH MTV Khai thác công trình Thủy lợi Hải Dương")
 
 st.markdown("### 📥 Nạp dữ liệu từ File Excel")
 st.markdown("Vui lòng tải lên file danh sách xuất ra từ hệ thống. File cần có các cột chứa chữ **'Ký hiệu'** và **'Trích yếu'**.")
