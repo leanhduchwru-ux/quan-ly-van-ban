@@ -69,10 +69,44 @@ def match_documents():
     finally:
         conn.close()
 
-if st.button("🔄 Đồng bộ & Đối chiếu Dữ liệu", type="primary"):
-    with st.spinner("Đang chạy đối chiếu tự động..."):
-        updated = match_documents()
-        st.success(f"Đã đối chiếu thành công {updated} văn bản đến!")
+def generate_mock_data():
+    conn = get_connection()
+    try:
+        # Clear old data
+        conn.execute("DELETE FROM document_relations")
+        conn.execute("DELETE FROM tasks")
+        conn.execute("DELETE FROM documents")
+        
+        # Insert Incoming
+        conn.execute("INSERT INTO documents (id, type, document_no, summary, deadline) VALUES ('in1', 'INCOMING', '123/UBND', 'V/v báo cáo tiến độ dự án', '2027-12-31 23:59:59')")
+        conn.execute("INSERT INTO documents (id, type, document_no, summary, deadline) VALUES ('in2', 'INCOMING', '456/STT', 'Yêu cầu phúc đáp công văn', '2022-01-01 23:59:59')")
+        conn.execute("INSERT INTO documents (id, type, document_no, summary, deadline) VALUES ('in3', 'INCOMING', '789/VP', 'Xin ý kiến chỉ đạo của Giám đốc', '2027-12-31 23:59:59')")
+        
+        # Insert Outgoing
+        conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES ('out1', 'OUTGOING', '102/UBND-TL', 'Trả lời công văn 789/VP')")
+        
+        # Insert Tasks
+        conn.execute("INSERT INTO tasks (id, document_id, assignee, status) VALUES ('t1', 'in1', 'Nguyễn Văn A', 'Đang xử lý')")
+        conn.execute("INSERT INTO tasks (id, document_id, assignee, status) VALUES ('t2', 'in3', 'Trần Thị B', 'Hoàn thành')")
+        
+        conn.commit()
+    finally:
+        conn.close()
+
+col_btn1, col_btn2 = st.columns([1, 1])
+
+with col_btn1:
+    if st.button("🔄 Đồng bộ & Đối chiếu Dữ liệu", type="primary", use_container_width=True):
+        with st.spinner("Đang chạy đối chiếu tự động..."):
+            updated = match_documents()
+            st.success(f"Đã đối chiếu thành công {updated} văn bản đến!")
+
+with col_btn2:
+    if st.button("📥 Nạp dữ liệu Test mẫu", use_container_width=True):
+        with st.spinner("Đang nạp dữ liệu..."):
+            generate_mock_data()
+            match_documents()
+            st.success("Đã nạp dữ liệu mẫu thành công! Vui lòng làm mới lại trang.")
 
 st.markdown("---")
 
