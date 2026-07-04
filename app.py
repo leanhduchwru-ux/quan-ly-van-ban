@@ -221,13 +221,15 @@ with col_up1:
     if file_in_voffice:
         with st.spinner("Đang xử lý VOFFICE..."):
             c = process_uploaded_file(file_in_voffice, 'INCOMING', 'VOFFICE')
-            st.success(f"Đã nạp {c} văn bản đến VOFFICE!")
+            match_documents('VOFFICE')
+            st.success(f"Đã nạp {c} văn bản đến VOFFICE và tự động đối chiếu!")
             
     file_in_hpnet = st.file_uploader("Kéo thả file Văn bản đến - HPNET", type=["xlsx", "xls"], key="in_hpnet")
     if file_in_hpnet:
         with st.spinner("Đang xử lý HPNET..."):
             c = process_uploaded_file(file_in_hpnet, 'INCOMING', 'HPNET')
-            st.success(f"Đã nạp {c} văn bản đến HPNET!")
+            match_documents('HPNET')
+            st.success(f"Đã nạp {c} văn bản đến HPNET và tự động đối chiếu!")
 
 with col_up2:
     st.info("📤 VĂN BẢN ĐI")
@@ -235,13 +237,15 @@ with col_up2:
     if file_out_voffice:
         with st.spinner("Đang xử lý VOFFICE..."):
             c = process_uploaded_file(file_out_voffice, 'OUTGOING', 'VOFFICE')
-            st.success(f"Đã nạp {c} văn bản đi VOFFICE!")
+            match_documents('VOFFICE')
+            st.success(f"Đã nạp {c} văn bản đi VOFFICE và tự động đối chiếu!")
             
     file_out_hpnet = st.file_uploader("Kéo thả file Văn bản đi - HPNET", type=["xlsx", "xls"], key="out_hpnet")
     if file_out_hpnet:
         with st.spinner("Đang xử lý HPNET..."):
             c = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
-            st.success(f"Đã nạp {c} văn bản đi HPNET!")
+            match_documents('HPNET')
+            st.success(f"Đã nạp {c} văn bản đi HPNET và tự động đối chiếu!")
 
 col_btn1, col_btn2 = st.columns(2)
 
@@ -284,7 +288,11 @@ stats_voffice = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0
 stats_hpnet = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
 
 if len(relations) == 0:
-    st.info("Cơ sở dữ liệu đang trống. Vui lòng tải dữ liệu từ file Excel lên.")
+    doc_count = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+    if doc_count > 0:
+        st.warning("Dữ liệu đã được nạp! Vui lòng bấm nút **'🔄 Chạy Đối Chiếu Tự Động'** ở phía trên để hệ thống bắt đầu phân tích và hiển thị bảng.")
+    else:
+        st.info("Cơ sở dữ liệu đang trống. Vui lòng tải dữ liệu từ file Excel lên các ô bên trên.")
 else:
     for rel in relations:
         sys_name = rel['system_name']
