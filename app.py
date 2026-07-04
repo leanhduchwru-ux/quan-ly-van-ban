@@ -220,8 +220,6 @@ try:
             st.info("Chưa có dữ liệu Văn bản đi.")
 
     st.markdown("---")
-    st.markdown("### 📊 Phân tích dữ liệu Voffice+Hpnet")
-    
     # 1. Trích yếu văn bản đi trùng/không trùng với văn bản đến
     inc_summaries = set([clean_for_dedup(r['Trích yếu']) for r in incoming_docs if clean_for_dedup(r['Trích yếu'])])
     
@@ -364,41 +362,17 @@ try:
         st.info("Chưa có dữ liệu văn bản đến để phân tích.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến từ Sở, Ban, Ngành (Chưa có văn bản đi)")
+    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến của Chủ tịch Công ty (Chưa có văn bản đi)")
     
     out_summaries = set([clean_for_dedup(r['Trích yếu']) for r in outgoing_docs if clean_for_dedup(r['Trích yếu'])])
-    
-    so_ban_nganh_docs = []
     chu_tich_docs = []
-    
     for r in incoming_docs:
         key = clean_for_dedup(r['Trích yếu'])
         if key and key not in out_summaries:
             source = str(r['Nơi ban hành']).lower() if r['Nơi ban hành'] else ""
             if "chủ tịch" in source:
                 chu_tich_docs.append(r)
-            else:
-                so_ban_nganh_docs.append(r)
                 
-    sorted_sbn_types = count_doc_types(so_ban_nganh_docs)
-    if sorted_sbn_types:
-        num_cols = 4
-        cols = st.columns(num_cols)
-        for i, (dtype, count) in enumerate(sorted_sbn_types):
-            with cols[i % num_cols]:
-                st.metric(label=f"Số lượng {dtype}", value=count)
-                
-        # Hiển thị danh sách chi tiết
-        st.markdown("**Danh sách chi tiết văn bản Sở, Ban, Ngành nợ đọng:**")
-        df_sbn = pd.DataFrame([dict(r) for r in so_ban_nganh_docs])
-        df_sbn.insert(0, 'TT', range(1, 1 + len(df_sbn)))
-        st.dataframe(df_sbn, use_container_width=True, hide_index=True)
-    else:
-        st.success("Tuyệt vời! Không có văn bản nợ đọng từ các Sở, ban, ngành.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến của Chủ tịch Công ty (Chưa có văn bản đi)")
-    
     sorted_ct_types = count_doc_types(chu_tich_docs)
     if sorted_ct_types:
         num_cols = 4
@@ -414,47 +388,6 @@ try:
         st.dataframe(df_ct, use_container_width=True, hide_index=True)
     else:
         st.success("Tuyệt vời! Không có văn bản nợ đọng từ Chủ tịch Công ty.")
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến từ Hpnet (Chưa có văn bản đi)")
-    
-    hpnet_docs = [r for r in incoming_docs if clean_for_dedup(r['Trích yếu']) and clean_for_dedup(r['Trích yếu']) not in out_summaries and r['Hệ thống'] == 'HPNET']
-    
-    # Lọc bỏ các loại văn bản không phải là "Công văn"
-    excluded_keywords = ["thông báo", "báo cáo", "giấy mời", "quyết định", "nghị quyết", "hướng dẫn", "kế hoạch", "tờ trình", "quy định", "chỉ thị"]
-    filtered_hpnet_docs = []
-    
-    for r in hpnet_docs:
-        summary = str(r['Trích yếu']).lower().strip()
-        if summary.startswith("v/v"):
-            summary = summary.replace("v/v", "", 1).replace(":", "", 1).strip()
-        elif summary.startswith("về việc"):
-            summary = summary.replace("về việc", "", 1).replace(":", "", 1).strip()
-            
-        should_exclude = False
-        for kw in excluded_keywords:
-            if summary.startswith(kw):
-                should_exclude = True
-                break
-                
-        if not should_exclude:
-            filtered_hpnet_docs.append(r)
-            
-    sorted_hpnet_types = count_doc_types(filtered_hpnet_docs)
-    if sorted_hpnet_types:
-        num_cols = 4
-        cols = st.columns(num_cols)
-        for i, (dtype, count) in enumerate(sorted_hpnet_types):
-            with cols[i % num_cols]:
-                st.metric(label=f"Số lượng {dtype}", value=count)
-                
-        # Hiển thị danh sách chi tiết
-        st.markdown("**Danh sách chi tiết văn bản HPNET nợ đọng: (Chỉ tính số lượng công văn các loại đối chiếu văn bản đến văn bản đi về trích yếu lập danh sách không bao gồm thông báo báo cáo giấy mời quyết định nghị quyết hướng dẫn kế hoạch tờ trình quy định chỉ thị)**")
-        df_hpnet = pd.DataFrame([dict(r) for r in filtered_hpnet_docs])
-        df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
-        st.dataframe(df_hpnet, use_container_width=True, hide_index=True)
-    else:
-        st.success("Tuyệt vời! Không có văn bản nợ đọng từ HPNET theo tiêu chí này.")
         
 finally:
     conn.close()
