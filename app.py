@@ -101,14 +101,18 @@ col_up1, col_up2 = st.columns(2)
 def process_uploaded_file(file, doc_type):
     if file is not None:
         try:
-            # Đọc không lấy dòng đầu làm header để tự dò tìm
             df = pd.read_excel(file, header=None)
             conn = get_connection()
-            conn.execute("DELETE FROM documents WHERE type = ?", (doc_type,))
+            
+            # Lấy danh sách văn bản đã có để tránh trùng lặp
+            existing_docs = {row['document_no'] for row in conn.execute("SELECT document_no FROM documents WHERE type = ?", (doc_type,)).fetchall()}
             
             count = 0
             doc_col = -1
             summary_col = -1
+            assignee_col = -1
+            
+            import re
             
             for index, row in df.iterrows():
                 # Bươc 1: Dò tìm dòng chứa Tiêu đề cột
@@ -120,7 +124,9 @@ def process_uploaded_file(file, doc_type):
                                 doc_col = i
                             if 'trích yếu' in val_str:
                                 summary_col = i
-                    continue # Bỏ qua dòng tiêu đề sau khi tìm thấy
+                            if 'xử lý' in val_str or 'người nhận' in val_str or 'chuyển' in val_str:
+                                assignee_col = i
+                    continue
                 
                 # Bước 2: Đọc dữ liệu từ các dòng bên dưới
                 if doc_col != -1 and summary_col != -1:
@@ -128,9 +134,23 @@ def process_uploaded_file(file, doc_type):
                     summary = str(row[summary_col]).strip() if pd.notna(row[summary_col]) else ""
                     
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
-                        conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
-                                     (str(uuid.uuid4()), doc_type, doc_number, summary))
-                        count += 1
+                        if doc_number not in existing_docs:
+                            doc_id = str(uuid.uuid4())
+                            conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
+                                         (doc_id, doc_type, doc_number, summary))
+                            
+                            # Xử lý bóc tách Người xử lý (Bỏ qua Trương Mạnh Tiến, lấy người thứ 2)
+                            if assignee_col != -1 and pd.notna(row[assignee_col]):
+                                val = str(row[assignee_col]).strip()
+                                parts = [p.strip() for p in re.split(r'[,\n-]', val) if p.strip()]
+                                parts = [p for p in parts if 'Trương Mạnh Tiến' not in p]
+                                assignee = parts[0] if parts else "Trương Mạnh Tiến"
+                                
+                                conn.execute("INSERT INTO tasks (id, document_id, assignee, status) VALUES (?, ?, ?, ?)",
+                                             (str(uuid.uuid4()), doc_id, assignee, 'Đang xử lý'))
+                            
+                            existing_docs.add(doc_number)
+                            count += 1
             
             conn.commit()
             conn.close()
@@ -208,14 +228,27 @@ col1.metric("Đang nhận việc", stats.get("Đang nhận việc", 0))
 col2.metric("Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
 col3.metric("Có văn bản đi", stats.get("Có văn bản đi", 0))
 
-st.markdown("### Danh sách văn bản đối chiếu")
+st.markdown("### 📋 Bảng Kê Đối Chiếu Văn Bản")
 df = pd.DataFrame(data)
 
 def color_status(val):
-    if val == 'Đang nhận việc': return 'color: #fde047; font-weight: bold;'
-    elif val == 'Chưa có văn bản trả lời': return 'color: #fca5a5; font-weight: bold;'
-    elif val == 'Có văn bản đi': return 'color: #6ee7b7; font-weight: bold;'
+    if val == 'Đang nhận việc': return 'color: #ca8a04; background-color: #fef08a; font-weight: bold; padding: 4px; border-radius: 4px;'
+    elif val == 'Chưa có văn bản trả lời': return 'color: #991b1b; background-color: #fecaca; font-weight: bold; padding: 4px; border-radius: 4px;'
+    elif val == 'Có văn bản đi': return 'color: #166534; background-color: #bbf7d0; font-weight: bold; padding: 4px; border-radius: 4px;'
     return ''
     
 if not df.empty:
-    st.dataframe(df.style.map(color_status, subset=['Trạng thái']), use_container_width=True, hide_index=True)
+    df.insert(0, 'STT', range(1, 1 + len(df)))
+    st.dataframe(
+        df.style.map(color_status, subset=['Trạng thái']),
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "STT": st.column_config.NumberColumn("STT", width="small"),
+            "Văn bản đến": st.column_config.TextColumn("Văn bản đến", width="medium"),
+            "Trích yếu": st.column_config.TextColumn("Trích yếu", width="large"),
+            "Trạng thái": st.column_config.TextColumn("Trạng thái", width="medium"),
+            "Người xử lý": st.column_config.TextColumn("Người xử lý", width="medium"),
+            "VB Đi": st.column_config.TextColumn("VB Đi (Phúc đáp)", width="medium")
+        }
+    )
