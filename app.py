@@ -111,6 +111,8 @@ def process_uploaded_file(file, doc_type):
             doc_col = -1
             summary_col = -1
             assignee_col = -1
+            date_col = -1
+            agency_col = -1
             
             import re
             
@@ -126,6 +128,10 @@ def process_uploaded_file(file, doc_type):
                                 summary_col = i
                             if 'xử lý' in val_str or 'người nhận' in val_str or 'chuyển' in val_str:
                                 assignee_col = i
+                            if 'ngày ban hành' in val_str or 'ngày nhận' in val_str or 'ngày văn bản' in val_str or 'ngày' in val_str.split():
+                                date_col = i
+                            if 'nơi ban hành' in val_str or 'nơi lưu trữ' in val_str or 'nơi nhận' in val_str or 'cơ quan' in val_str:
+                                agency_col = i
                     continue
                 
                 # Bước 2: Đọc dữ liệu từ các dòng bên dưới
@@ -133,11 +139,23 @@ def process_uploaded_file(file, doc_type):
                     doc_number = str(row[doc_col]).strip() if pd.notna(row[doc_col]) else ""
                     summary = str(row[summary_col]).strip() if pd.notna(row[summary_col]) else ""
                     
+                    doc_date = ""
+                    if date_col != -1 and pd.notna(row[date_col]):
+                        val = row[date_col]
+                        if isinstance(val, datetime.datetime):
+                            doc_date = val.strftime("%d/%m/%Y")
+                        else:
+                            doc_date = str(val).strip()
+                            # Loại bỏ "00:00:00" nếu pandas ép kiểu nhầm thành string có giờ
+                            doc_date = doc_date.replace("00:00:00", "").strip()
+                            
+                    agency = str(row[agency_col]).strip() if agency_col != -1 and pd.notna(row[agency_col]) else ""
+                    
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
                         if doc_number not in existing_docs:
                             doc_id = str(uuid.uuid4())
-                            conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
-                                         (doc_id, doc_type, doc_number, summary))
+                            conn.execute("INSERT INTO documents (id, type, document_no, date, agency, summary) VALUES (?, ?, ?, ?, ?, ?)",
+                                         (doc_id, doc_type, doc_number, doc_date, agency, summary))
                             
                             # Xử lý bóc tách Người xử lý (Lấy chính xác người liền sau Trương Mạnh Tiến)
                             if assignee_col != -1 and pd.notna(row[assignee_col]):
@@ -207,8 +225,12 @@ relations = conn.execute('''
     SELECT 
         r.match_status,
         i.document_no as inc_doc,
+        i.date as inc_date,
+        i.agency as inc_agency,
         i.summary as inc_summary,
         o.document_no as out_doc,
+        o.date as out_date,
+        o.agency as out_agency,
         i.id as inc_id
     FROM document_relations r
     JOIN documents i ON r.incoming_id = i.id
@@ -216,13 +238,9 @@ relations = conn.execute('''
 ''').fetchall()
 
 if len(relations) == 0:
-    st.info("Cơ sở dữ liệu đang trống. Dưới đây là dữ liệu mẫu để hiển thị giao diện.")
-    stats = {"Đang nhận việc": 12, "Chưa có văn bản trả lời": 3, "Có văn bản đi": 25}
-    data = [
-        {"Văn bản đến": "123/UBND", "Trích yếu": "V/v báo cáo quý 1", "Trạng thái": "Đang nhận việc", "Người xử lý": "Nguyễn Văn A", "VB Đi": "-"},
-        {"Văn bản đến": "456/STT", "Trích yếu": "Yêu cầu phúc đáp", "Trạng thái": "Chưa có văn bản trả lời", "Người xử lý": "Chưa phân công", "VB Đi": "-"},
-        {"Văn bản đến": "789/VP", "Trích yếu": "Xin ý kiến chỉ đạo", "Trạng thái": "Có văn bản đi", "Người xử lý": "Trần Thị B", "VB Đi": "102/UBND-TL"},
-    ]
+    st.info("Cơ sở dữ liệu đang trống. Vui lòng tải dữ liệu từ file Excel lên.")
+    stats = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
+    data = []
 else:
     stats = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
     data = []
@@ -230,14 +248,18 @@ else:
         stats[rel['match_status']] = stats.get(rel['match_status'], 0) + 1
         
         tasks = conn.execute("SELECT assignee FROM tasks WHERE document_id = ?", (rel['inc_id'],)).fetchall()
-        assignees = ", ".join([t['assignee'] for t in tasks if t['assignee']]) if tasks else "Chưa phân công"
+        assignees = ", ".join([t['assignee'] for t in tasks if t['assignee']]) if tasks else ""
         
         data.append({
             "Văn bản đến": rel['inc_doc'],
+            "ngày đến": rel['inc_date'] if rel['inc_date'] else "",
+            "Nơi gửi đến": rel['inc_agency'] if rel['inc_agency'] else "",
             "Trích yếu": rel['inc_summary'],
-            "Trạng thái": rel['match_status'],
             "Người xử lý": assignees,
-            "VB Đi": rel['out_doc'] if rel['out_doc'] else "-"
+            "VB đi": rel['out_doc'] if rel['out_doc'] else "",
+            "Ngày gửi đi": rel['out_date'] if rel['out_date'] else "",
+            "Nơi gửi đi": rel['out_agency'] if rel['out_agency'] else "",
+            "Trạng thái": rel['match_status']
         })
 conn.close()
 
@@ -256,17 +278,22 @@ def color_status(val):
     return ''
     
 if not df.empty:
-    df.insert(0, 'STT', range(1, 1 + len(df)))
+    df.insert(0, 'TT', range(1, 1 + len(df)))
     st.dataframe(
         df.style.map(color_status, subset=['Trạng thái']),
         use_container_width=True, 
         hide_index=True,
+        column_order=["TT", "Văn bản đến", "ngày đến", "Nơi gửi đến", "Trích yếu", "Người xử lý", "VB đi", "Ngày gửi đi", "Nơi gửi đi", "Trạng thái"],
         column_config={
-            "STT": st.column_config.NumberColumn("STT", width="small"),
+            "TT": st.column_config.NumberColumn("TT", width="small"),
             "Văn bản đến": st.column_config.TextColumn("Văn bản đến", width="medium"),
+            "ngày đến": st.column_config.TextColumn("ngày đến", width="small"),
+            "Nơi gửi đến": st.column_config.TextColumn("Nơi gửi đến", width="medium"),
             "Trích yếu": st.column_config.TextColumn("Trích yếu", width="large"),
-            "Trạng thái": st.column_config.TextColumn("Trạng thái", width="medium"),
             "Người xử lý": st.column_config.TextColumn("Người xử lý", width="medium"),
-            "VB Đi": st.column_config.TextColumn("VB Đi (Phúc đáp)", width="medium")
+            "VB đi": st.column_config.TextColumn("VB đi", width="medium"),
+            "Ngày gửi đi": st.column_config.TextColumn("Ngày gửi đi", width="small"),
+            "Nơi gửi đi": st.column_config.TextColumn("Nơi gửi đi", width="medium"),
+            "Trạng thái": st.column_config.TextColumn("Trạng thái (Hệ thống)", width="medium")
         }
     )
