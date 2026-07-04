@@ -265,7 +265,7 @@ try:
 
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến của Chủ tịch Công ty (Chưa có văn bản đi)")
+    st.markdown("#### 🚨 Phân loại nhóm Văn bản đến của Chủ tịch Công ty (Trương Mạnh Tiến) theo trích yếu")
     
     out_summaries = set([clean_for_dedup(r['Trích yếu']) for r in outgoing_docs if clean_for_dedup(r['Trích yếu'])])
     chu_tich_docs = []
