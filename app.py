@@ -73,7 +73,7 @@ def process_uploaded_file(file, doc_type, system_name):
                                 assignee_col = i
                             if 'ngày ban hành' in val_str or 'ngày nhận' in val_str or 'ngày văn bản' in val_str or 'ngày' in val_str.split():
                                 date_col = i
-                            if 'nơi ban hành' in val_str or 'nơi lưu trữ' in val_str or 'nơi nhận' in val_str or 'cơ quan' in val_str:
+                            if 'đơn vị soạn thảo' in val_str or 'đơn vị ban hành' in val_str or 'nơi ban hành' in val_str or 'nơi lưu trữ' in val_str or 'nơi nhận' in val_str or 'cơ quan' in val_str:
                                 agency_col = i
                     continue
                 
@@ -207,6 +207,8 @@ try:
         st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau từ tháng 1 đến tháng 12 của năm nhập liệu)")
         if incoming_docs:
             df_in = pd.DataFrame([dict(row) for row in incoming_docs])
+            if 'id' in df_in.columns:
+                df_in = df_in.drop(columns=['id'])
             if 'Ngày ban hành' in df_in.columns:
                 df_in['Ngày ban hành_dt'] = pd.to_datetime(df_in['Ngày ban hành'], dayfirst=True, errors='coerce')
                 df_in = df_in.sort_values(by='Ngày ban hành_dt', ascending=False, na_position='last').drop(columns=['Ngày ban hành_dt'])
