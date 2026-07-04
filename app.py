@@ -139,12 +139,30 @@ def process_uploaded_file(file, doc_type):
                             conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
                                          (doc_id, doc_type, doc_number, summary))
                             
-                            # Xử lý bóc tách Người xử lý (Bỏ qua Trương Mạnh Tiến, lấy người thứ 2)
+                            # Xử lý bóc tách Người xử lý (Lấy chính xác người liền sau Trương Mạnh Tiến)
                             if assignee_col != -1 and pd.notna(row[assignee_col]):
                                 val = str(row[assignee_col]).strip()
-                                parts = [p.strip() for p in re.split(r'[,\n-]', val) if p.strip()]
-                                parts = [p for p in parts if 'Trương Mạnh Tiến' not in p]
-                                assignee = parts[0] if parts else "Trương Mạnh Tiến"
+                                parts = [p.strip() for p in re.split(r'[,\n;]', val) if p.strip()]
+                                assignee = ""
+                                
+                                tm_index = -1
+                                for i, p in enumerate(parts):
+                                    if 'Trương Mạnh Tiến' in p:
+                                        tm_index = i
+                                        break
+                                
+                                if tm_index != -1 and tm_index < len(parts) - 1:
+                                    # Lấy người liền sau Trương Mạnh Tiến
+                                    assignee = parts[tm_index + 1]
+                                elif tm_index == -1 and parts:
+                                    # Không có Trương Mạnh Tiến, bỏ qua từ khóa 'Lưu'
+                                    filtered = [p for p in parts if p.lower() not in ['lưu', 'lưu trữ', 'văn thư', 'vt']]
+                                    assignee = filtered[0] if filtered else parts[0]
+                                else:
+                                    assignee = "Trương Mạnh Tiến"
+                                
+                                # Xóa bớt chữ thừa như "(Xử lý chính)", "(Phối hợp)" để tên gọn gàng
+                                assignee = re.sub(r'\(.*?\)', '', assignee).strip()
                                 
                                 conn.execute("INSERT INTO tasks (id, document_id, assignee, status) VALUES (?, ?, ?, ?)",
                                              (str(uuid.uuid4()), doc_id, assignee, 'Đang xử lý'))
