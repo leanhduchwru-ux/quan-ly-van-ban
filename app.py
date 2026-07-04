@@ -361,7 +361,27 @@ try:
     
     hpnet_docs = [r for r in incoming_docs if clean_for_dedup(r['Trích yếu']) and clean_for_dedup(r['Trích yếu']) not in out_summaries and r['Hệ thống'] == 'HPNET']
     
-    sorted_hpnet_types = count_doc_types(hpnet_docs)
+    # Lọc bỏ các loại văn bản không phải là "Công văn"
+    excluded_keywords = ["thông báo", "báo cáo", "giấy mời", "quyết định", "nghị quyết", "hướng dẫn", "kế hoạch", "tờ trình", "quy định", "chỉ thị"]
+    filtered_hpnet_docs = []
+    
+    for r in hpnet_docs:
+        summary = str(r['Trích yếu']).lower().strip()
+        if summary.startswith("v/v"):
+            summary = summary.replace("v/v", "", 1).replace(":", "", 1).strip()
+        elif summary.startswith("về việc"):
+            summary = summary.replace("về việc", "", 1).replace(":", "", 1).strip()
+            
+        should_exclude = False
+        for kw in excluded_keywords:
+            if summary.startswith(kw):
+                should_exclude = True
+                break
+                
+        if not should_exclude:
+            filtered_hpnet_docs.append(r)
+            
+    sorted_hpnet_types = count_doc_types(filtered_hpnet_docs)
     if sorted_hpnet_types:
         num_cols = 4
         cols = st.columns(num_cols)
@@ -370,12 +390,12 @@ try:
                 st.metric(label=f"Số lượng {dtype}", value=count)
                 
         # Hiển thị danh sách chi tiết
-        st.markdown("**Danh sách chi tiết văn bản HPNET nợ đọng: (Chỉ tính số lượng công văn các loại đối chiếu văn bản đến văn bản đi về trích yếu lập danh sách)**")
-        df_hpnet = pd.DataFrame([dict(r) for r in hpnet_docs])
+        st.markdown("**Danh sách chi tiết văn bản HPNET nợ đọng: (Chỉ tính số lượng công văn các loại đối chiếu văn bản đến văn bản đi về trích yếu lập danh sách không bao gồm thông báo báo cáo giấy mời quyết định nghị quyết hướng dẫn kế hoạch tờ trình quy định chỉ thị)**")
+        df_hpnet = pd.DataFrame([dict(r) for r in filtered_hpnet_docs])
         df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
         st.dataframe(df_hpnet, use_container_width=True, hide_index=True)
     else:
-        st.success("Tuyệt vời! Không có văn bản nợ đọng từ HPNET.")
+        st.success("Tuyệt vời! Không có văn bản nợ đọng từ HPNET theo tiêu chí này.")
         
 finally:
     conn.close()
