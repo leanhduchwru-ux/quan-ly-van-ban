@@ -267,8 +267,8 @@ try:
             
         return sorted(doc_types_count.items(), key=lambda x: x[1], reverse=True)
 
-    st.markdown("#### 📑 Phân loại Nhóm Văn bản (Tất cả đến & đi)")
-    sorted_all_types = count_doc_types(incoming_docs + outgoing_docs)
+    st.markdown("#### 📑 Phân loại Nhóm Văn bản đi (Theo trích yếu)")
+    sorted_all_types = count_doc_types(outgoing_docs)
     if sorted_all_types:
         num_cols = 4
         cols = st.columns(num_cols)
@@ -276,7 +276,7 @@ try:
             with cols[i % num_cols]:
                 st.metric(label=f"Số lượng {dtype}", value=count)
     else:
-        st.info("Chưa có dữ liệu để phân tích.")
+        st.info("Chưa có dữ liệu văn bản đi để phân tích.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("#### 📑 Phân loại Nhóm Văn bản đến (Theo Trích yếu)")
