@@ -228,67 +228,7 @@ try:
             st.info("Chưa có dữ liệu Văn bản đi.")
 
     st.markdown("---")
-    st.markdown("### 🚨 DANH SÁCH VĂN BẢN NỢ ĐỌNG CẦN XỬ LÝ (SLA)")
-    
-    out_summaries = set()
-    out_raw_summaries = []
-    for r in outgoing_docs:
-        cl = clean_for_dedup(r['Trích yếu'])
-        if cl:
-            out_summaries.add(cl)
-        if r['Trích yếu']:
-            raw = re.sub(r'\s+', ' ', str(r['Trích yếu'])).lower()
-            out_raw_summaries.append(raw)
-            
-    pending_docs = []
-    for r in incoming_docs:
-        key = clean_for_dedup(r['Trích yếu'])
-        if not key:
-            continue
-            
-        if key in out_summaries:
-            continue
-            
-        ky_hieu = str(r['Ký hiệu']).strip().lower()
-        matched = False
-        if ky_hieu and ky_hieu != 'nan':
-            for out_raw in out_raw_summaries:
-                if ky_hieu in out_raw:
-                    matched = True
-                    break
-        
-        if matched:
-            continue
-            
-        doc_dict = dict(r)
-        doc_dict.pop('id', None)
-        pending_docs.append(doc_dict)
-        
-    if pending_docs:
-        df_pending = pd.DataFrame(pending_docs)
-        if 'Ngày ban hành' in df_pending.columns:
-            df_pending['Ngày ban hành_dt'] = pd.to_datetime(df_pending['Ngày ban hành'], dayfirst=True, errors='coerce')
-            today = pd.Timestamp.today().normalize()
-            df_pending['Số ngày tồn đọng'] = (today - df_pending['Ngày ban hành_dt']).dt.days
-            df_pending['Số ngày tồn đọng'] = df_pending['Số ngày tồn đọng'].fillna(-1).astype(int)
-            df_pending['Số ngày tồn đọng'] = df_pending['Số ngày tồn đọng'].apply(lambda x: max(0, x) if x != -1 else 0)
-            
-            def get_status(days):
-                if days == -1: return "Không rõ"
-                if days <= 3: return "🟢 Trong hạn"
-                if days <= 5: return "🟡 Đến hạn"
-                return "🔴 Quá hạn"
-                
-            df_pending['Trạng thái'] = df_pending['Số ngày tồn đọng'].apply(get_status)
-            df_pending = df_pending.sort_values(by=['Số ngày tồn đọng', 'Đơn vị/Người xử lý'], ascending=[False, True]).drop(columns=['Ngày ban hành_dt'])
-            
-        df_pending.insert(0, 'TT', range(1, 1 + len(df_pending)))
-        st.info(f"Phát hiện **{len(df_pending)}** văn bản nợ đọng.")
-        st.dataframe(df_pending, use_container_width=True, hide_index=True)
-    else:
-        st.success("Tuyệt vời! Không có văn bản nào đang nợ đọng!")
 
-    st.markdown("---")
 
     
     def count_doc_types(docs):
