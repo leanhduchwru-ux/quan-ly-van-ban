@@ -93,7 +93,10 @@ def generate_mock_data():
     finally:
         conn.close()
 
-col_btn1, col_btn2 = st.columns([1, 1])
+from crawler import run_crawler
+import asyncio
+
+col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 
 with col_btn1:
     if st.button("🔄 Đồng bộ & Đối chiếu Dữ liệu", type="primary", use_container_width=True):
@@ -107,6 +110,13 @@ with col_btn2:
             generate_mock_data()
             match_documents()
             st.success("Đã nạp dữ liệu mẫu thành công! Vui lòng làm mới lại trang.")
+
+with col_btn3:
+    if st.button("🚀 Chạy Crawler lấy dữ liệu thật", use_container_width=True):
+        with st.spinner("Đang khởi động trình duyệt ảo lấy dữ liệu (Mất khoảng 30s)..."):
+            asyncio.run(run_crawler())
+            st.success("Crawler đã chạy xong! Cookie đã được lưu.")
+
 
 st.markdown("---")
 
