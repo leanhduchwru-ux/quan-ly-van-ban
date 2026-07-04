@@ -28,11 +28,15 @@ st.markdown("""
 
 st.title("Hệ Thống Quản Lý Văn Bản Điều Hành")
 
-def match_documents():
+def match_documents(system_name=None):
     conn = get_connection()
     try:
-        incoming_docs = conn.execute("SELECT * FROM documents WHERE type = 'INCOMING'").fetchall()
-        outgoing_docs = conn.execute("SELECT * FROM documents WHERE type = 'OUTGOING'").fetchall()
+        if system_name:
+            incoming_docs = conn.execute("SELECT * FROM documents WHERE type = 'INCOMING' AND content = ?", (system_name,)).fetchall()
+            outgoing_docs = conn.execute("SELECT * FROM documents WHERE type = 'OUTGOING' AND content = ?", (system_name,)).fetchall()
+        else:
+            incoming_docs = conn.execute("SELECT * FROM documents WHERE type = 'INCOMING'").fetchall()
+            outgoing_docs = conn.execute("SELECT * FROM documents WHERE type = 'OUTGOING'").fetchall()
         
         updated_count = 0
         for incoming in incoming_docs:
@@ -229,10 +233,19 @@ with col_up2:
             c = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
             st.success(f"Đã nạp {c} văn bản đi HPNET!")
 
-if st.button("🔄 Chạy Đối Chiếu Tự Động", type="primary", use_container_width=True):
-    with st.spinner("Đang phân tích và đối chiếu..."):
-        updated = match_documents()
-        st.success(f"Đã đối chiếu thành công {updated} văn bản! Vui lòng xem kết quả bên dưới.")
+col_btn1, col_btn2 = st.columns(2)
+
+with col_btn1:
+    if st.button("🔄 Chạy Đối Chiếu Tự Động VOFFICE", type="primary", use_container_width=True):
+        with st.spinner("Đang phân tích và đối chiếu VOFFICE..."):
+            updated = match_documents('VOFFICE')
+            st.success(f"Đã đối chiếu thành công {updated} văn bản VOFFICE! Vui lòng xem kết quả bên dưới.")
+
+with col_btn2:
+    if st.button("🔄 Chạy Đối Chiếu Tự Động HPNET", type="primary", use_container_width=True):
+        with st.spinner("Đang phân tích và đối chiếu HPNET..."):
+            updated = match_documents('HPNET')
+            st.success(f"Đã đối chiếu thành công {updated} văn bản HPNET! Vui lòng xem kết quả bên dưới.")
 
 
 st.markdown("---")
