@@ -220,26 +220,7 @@ try:
             st.info("Chưa có dữ liệu Văn bản đi.")
 
     st.markdown("---")
-    # 1. Trích yếu văn bản đi trùng/không trùng với văn bản đến
-    inc_summaries = set([clean_for_dedup(r['Trích yếu']) for r in incoming_docs if clean_for_dedup(r['Trích yếu'])])
-    
-    trung_count = 0
-    khong_trung_count = 0
-    
-    for r in outgoing_docs:
-        key = clean_for_dedup(r['Trích yếu'])
-        if key and key in inc_summaries:
-            trung_count += 1
-        else:
-            khong_trung_count += 1
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.success(f"✅ **Trích yếu văn bản ĐI TRÙNG với văn bản ĐẾN:** {trung_count}")
-    with col2:
-        st.warning(f"⚠️ **Trích yếu văn bản ĐI KHÔNG TRÙNG với văn bản ĐẾN:** {khong_trung_count}")
-        
-    st.markdown("<br>", unsafe_allow_html=True)
     
     def count_doc_types(docs):
         keyword_mapping = {
