@@ -370,7 +370,7 @@ try:
                 st.metric(label=f"Số lượng {dtype}", value=count)
                 
         # Hiển thị danh sách chi tiết
-        st.markdown("**Danh sách chi tiết văn bản HPNET nợ đọng:**")
+        st.markdown("**Danh sách chi tiết văn bản HPNET nợ đọng: (Chỉ tính số lượng công văn các loại đối chiếu văn bản đến văn bản đi về trích yếu lập danh sách)**")
         df_hpnet = pd.DataFrame([dict(r) for r in hpnet_docs])
         df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
         st.dataframe(df_hpnet, use_container_width=True, hide_index=True)
