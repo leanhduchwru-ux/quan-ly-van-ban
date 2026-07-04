@@ -43,17 +43,16 @@ def init_db():
         document_id TEXT,
         assignee TEXT,
         status TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        progress INTEGER DEFAULT 0,
+        deadline DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(document_id) REFERENCES documents(id)
     )''')
     
     # App Stats for raw counts
     c.execute('''CREATE TABLE IF NOT EXISTS app_stats (
         key TEXT PRIMARY KEY,
         value INTEGER
-    )''')
-        progress INTEGER DEFAULT 0,
-        deadline DATETIME,
-        FOREIGN KEY(document_id) REFERENCES documents(id)
     )''')
     
     # Document Relations
