@@ -52,20 +52,33 @@ async def authenticate_and_save_session(config):
 
             log_messages.append(f"[{config['key']}] Đang truy cập trang đăng nhập...")
             await page.goto(config['login_url'], wait_until='networkidle')
+            await page.wait_for_timeout(5000) # Wait 5s for ZK framework to fully render
 
-            log_messages.append(f"[{config['key']}] Đang điền tài khoản và mật khẩu...")
-            await page.fill(config['username_selector'], username)
-            await page.fill(config['password_selector'], password)
+            try:
+                log_messages.append(f"[{config['key']}] Đang điền tài khoản và mật khẩu...")
+                await page.fill(config['username_selector'], username, timeout=5000)
+                await page.fill(config['password_selector'], password, timeout=5000)
+            except Exception:
+                log_messages.append(f"[{config['key']}] KHÔNG TÌM THẤY Ô NHẬP LIỆU! Đang quét mã nguồn thực tế...")
+                inputs = await page.evaluate("() => Array.from(document.querySelectorAll('input, button')).map(e => e.outerHTML)")
+                log_messages.append("--- DANH SÁCH THẺ TRÊN TRANG ---")
+                for i in inputs:
+                    log_messages.append(i.replace("<", "&lt;").replace(">", "&gt;"))
+                await browser.close()
+                return False, "\n".join(log_messages)
 
             log_messages.append(f"[{config['key']}] Bấm nút Đăng nhập...")
-            async with page.expect_navigation(wait_until="networkidle"):
+            async with page.expect_navigation(wait_until="networkidle", timeout=15000):
                 await page.click(config['submit_selector'])
+                await page.wait_for_timeout(3000)
 
             try:
                 await page.wait_for_selector(config['verify_selector'], timeout=5000)
                 log_messages.append(f"[{config['key']}] Đăng nhập THÀNH CÔNG!")
             except Exception:
-                log_messages.append(f"[{config['key']}] LỖI: Đăng nhập thất bại (Sai mật khẩu hoặc Selector sai).")
+                log_messages.append(f"[{config['key']}] LỖI: Xác minh đăng nhập thất bại. URL hiện tại: {page.url}")
+                page_text = await page.evaluate("document.body.innerText")
+                log_messages.append(f"Nội dung trang sau khi đăng nhập (100 ký tự): {page_text[:100]}")
                 await browser.close()
                 return False, "\n".join(log_messages)
 
