@@ -277,19 +277,11 @@ with col_up2:
             match_documents('HPNET')
             st.success(f"Đã nạp {c} văn bản đi HPNET và tự động đối chiếu!")
 
-col_btn1, col_btn2 = st.columns(2)
-
-with col_btn1:
-    if st.button("🔄 Chạy Đối Chiếu Tự Động VOFFICE", type="primary", use_container_width=True):
-        with st.spinner("Đang phân tích và đối chiếu VOFFICE..."):
-            updated = match_documents('VOFFICE')
-            st.success(f"Đã đối chiếu thành công {updated} văn bản VOFFICE! Vui lòng xem kết quả bên dưới.")
-
-with col_btn2:
-    if st.button("🔄 Chạy Đối Chiếu Tự Động HPNET", type="primary", use_container_width=True):
-        with st.spinner("Đang phân tích và đối chiếu HPNET..."):
-            updated = match_documents('HPNET')
-            st.success(f"Đã đối chiếu thành công {updated} văn bản HPNET! Vui lòng xem kết quả bên dưới.")
+if st.button("🔄 Chạy Đối Chiếu Tự Động TOÀN HỆ THỐNG (VOFFICE + HPNET)", type="primary", use_container_width=True):
+    with st.spinner("Đang phân tích và đối chiếu toàn bộ hệ thống..."):
+        up_voffice = match_documents('VOFFICE')
+        up_hpnet = match_documents('HPNET')
+        st.success(f"Đã đối chiếu thành công {up_voffice} văn bản VOFFICE và {up_hpnet} văn bản HPNET! Vui lòng xem kết quả bên dưới.")
 
 
 st.markdown("---")
