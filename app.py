@@ -340,8 +340,11 @@ def process_uploaded_file(file, doc_type, system_name):
             # Lưu ý: Cột content được dùng để lưu tên hệ thống (VOFFICE/HPNET)
             conn.execute("DELETE FROM documents WHERE type = ? AND content = ?", (doc_type, system_name))
             
-            # Lấy danh sách văn bản đã có để tránh trùng lặp
-            existing_docs = {row['document_no'] for row in conn.execute("SELECT document_no FROM documents WHERE type = ?", (doc_type,)).fetchall()}
+            # Lấy danh sách văn bản đã có để tránh trùng lặp (Kết hợp cả Ký hiệu và Trích yếu)
+            existing_docs = set()
+            for r in conn.execute("SELECT document_no, summary FROM documents WHERE type = ?", (doc_type,)).fetchall():
+                key = f"{str(r['document_no']).strip().lower()}_{str(r['summary']).strip().lower()}"
+                existing_docs.add(key)
             
             count = 0
             doc_col = -1
@@ -388,7 +391,8 @@ def process_uploaded_file(file, doc_type, system_name):
                     agency = str(row[agency_col]).strip() if agency_col != -1 and pd.notna(row[agency_col]) else ""
                     
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
-                        if doc_number not in existing_docs:
+                        key_to_check = f"{doc_number.strip().lower()}_{summary.strip().lower()}"
+                        if key_to_check not in existing_docs:
                             doc_id = str(uuid.uuid4())
                             # Lưu tên hệ thống vào cột content, lưu cơ quan vào cột system_source
                             conn.execute("INSERT INTO documents (id, type, document_no, issued_date, system_source, summary, content) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -422,7 +426,7 @@ def process_uploaded_file(file, doc_type, system_name):
                                 conn.execute("INSERT INTO tasks (id, document_id, assignee, status) VALUES (?, ?, ?, ?)",
                                              (str(uuid.uuid4()), doc_id, assignee, 'Đang xử lý'))
                             
-                            existing_docs.add(doc_number)
+                            existing_docs.add(key_to_check)
                             count += 1
             
             if doc_col == -1 or summary_col == -1:
