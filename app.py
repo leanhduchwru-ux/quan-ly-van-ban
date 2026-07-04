@@ -197,6 +197,11 @@ def process_uploaded_file(file, doc_type, system_name):
                             existing_docs.add(doc_number)
                             count += 1
             
+            if doc_col == -1 or summary_col == -1:
+                st.error("File không đúng định dạng cấu trúc, vui lòng kiểm tra lại cột Ký hiệu hoặc Trích yếu")
+                conn.close()
+                return 0
+
             conn.commit()
             conn.close()
             return count
