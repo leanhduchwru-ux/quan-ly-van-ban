@@ -267,12 +267,31 @@ try:
             doc_types_count[found_type] = doc_types_count.get(found_type, 0) + 1
             
         return sorted(doc_types_count.items(), key=lambda x: x[1], reverse=True)
+    st.markdown("### 📊 Thống kê văn bản đến")
+    st.info(f"**Tổng số lượng:** {len(incoming_docs)}")
+    st.markdown("**Phân loại (theo trích yếu)**")
+    sorted_in_types = count_doc_types(incoming_docs)
+    if sorted_in_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_in_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+    else:
+        st.info("Chưa có dữ liệu.")
 
-
-
-
-
-
-        
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 📊 Thống kê văn bản đi")
+    st.info(f"**Tổng số lượng:** {len(outgoing_docs)}")
+    st.markdown("**Phân loại (theo trích yếu)**")
+    sorted_out_types = count_doc_types(outgoing_docs)
+    if sorted_out_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_out_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+    else:
+        st.info("Chưa có dữ liệu.")
 finally:
     conn.close()
