@@ -37,6 +37,16 @@ st.title("Hệ Thống Quản Lý Văn Bản Điều Hành")
 def render_global_dashboard():
     conn = get_connection()
     try:
+        # Lấy raw count từ app_stats
+        try:
+            total_raw_voffice = conn.execute("SELECT value FROM app_stats WHERE key = 'raw_count_INCOMING_VOFFICE'").fetchone()
+            total_raw_voffice = total_raw_voffice['value'] if total_raw_voffice else 0
+            total_raw_hpnet = conn.execute("SELECT value FROM app_stats WHERE key = 'raw_count_INCOMING_HPNET'").fetchone()
+            total_raw_hpnet = total_raw_hpnet['value'] if total_raw_hpnet else 0
+            total_raw_in = total_raw_voffice + total_raw_hpnet
+        except:
+            total_raw_in = 0
+
         total_in = conn.execute("SELECT COUNT(*) FROM documents WHERE type = 'INCOMING'").fetchone()[0]
         total_out = conn.execute("SELECT COUNT(*) FROM documents WHERE type = 'OUTGOING'").fetchone()[0]
         
@@ -45,6 +55,8 @@ def render_global_dashboard():
         if total_in > 0 or total_out > 0:
             st.markdown("### 📊 Tổng Quan Toàn Cơ Quan")
             pending_class = "card-pending-alert" if pending > 0 else "card-pending-0"
+            raw_text = f"<div style='font-size: 0.9rem; margin-top: 5px; opacity: 0.8;'>(Tính cả trùng lặp: {total_raw_in} VB)</div>" if total_raw_in > 0 else ""
+            
             html_content = f"""
             <style>
             .metric-container {{
@@ -81,6 +93,7 @@ def render_global_dashboard():
                 <div class="metric-card card-in">
                     <div class="metric-title">📥 Tổng số Văn bản đến</div>
                     <div class="metric-value">{total_in}</div>
+                    {raw_text}
                 </div>
                 <div class="metric-card card-out">
                     <div class="metric-title">📤 Tổng số Văn bản đi</div>
@@ -349,6 +362,8 @@ def process_uploaded_file(file, doc_type, system_name):
         try:
             df = pd.read_excel(file, header=None)
             conn = get_connection()
+            count = 0
+            raw_count = 0
             
             # Xóa dữ liệu cũ của riêng Hệ thống này (VOFFICE hoặc HPNET) để tránh trùng lặp
             # Lưu ý: Cột content được dùng để lưu tên hệ thống (VOFFICE/HPNET)
@@ -360,7 +375,6 @@ def process_uploaded_file(file, doc_type, system_name):
                 key = f"{str(r['document_no']).strip().lower()}_{str(r['summary']).strip().lower()}"
                 existing_docs.add(key)
             
-            count = 0
             doc_col = -1
             summary_col = -1
             assignee_col = -1
@@ -405,6 +419,7 @@ def process_uploaded_file(file, doc_type, system_name):
                     agency = str(row[agency_col]).strip() if agency_col != -1 and pd.notna(row[agency_col]) else ""
                     
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
+                        raw_count += 1
                         key_to_check = f"{doc_number.strip().lower()}_{summary.strip().lower()}"
                         if key_to_check not in existing_docs:
                             doc_id = str(uuid.uuid4())
@@ -446,47 +461,50 @@ def process_uploaded_file(file, doc_type, system_name):
             if doc_col == -1 or summary_col == -1:
                 st.error("File không đúng định dạng cấu trúc, vui lòng kiểm tra lại cột Ký hiệu hoặc Trích yếu")
                 conn.close()
-                return 0
+                return 0, 0
+            
+            conn.execute("INSERT OR REPLACE INTO app_stats (key, value) VALUES (?, ?)", 
+                         (f"raw_count_{doc_type}_{system_name}", raw_count))
 
             conn.commit()
             conn.close()
-            return count
+            return count, raw_count
         except Exception as e:
             st.error(f"Lỗi đọc file: {e}")
-            return 0
-    return 0
+            return 0, 0
+    return 0, 0
 
 with col_up1:
     st.info("📥 VĂN BẢN ĐẾN")
     file_in_voffice = st.file_uploader("Kéo thả file Văn bản đến - VOFFICE", type=["xlsx", "xls"], key="in_voffice")
     if file_in_voffice:
         with st.spinner("Đang xử lý VOFFICE..."):
-            c = process_uploaded_file(file_in_voffice, 'INCOMING', 'VOFFICE')
+            c, raw = process_uploaded_file(file_in_voffice, 'INCOMING', 'VOFFICE')
             match_documents('VOFFICE')
-            st.success(f"Đã nạp {c} văn bản đến VOFFICE và tự động đối chiếu!")
+            st.success(f"Đã nạp {c} văn bản đến VOFFICE (từ tổng số {raw} dòng trong file) và tự động đối chiếu!")
             
     file_in_hpnet = st.file_uploader("Kéo thả file Văn bản đến - HPNET", type=["xlsx", "xls"], key="in_hpnet")
     if file_in_hpnet:
         with st.spinner("Đang xử lý HPNET..."):
-            c = process_uploaded_file(file_in_hpnet, 'INCOMING', 'HPNET')
+            c, raw = process_uploaded_file(file_in_hpnet, 'INCOMING', 'HPNET')
             match_documents('HPNET')
-            st.success(f"Đã nạp {c} văn bản đến HPNET và tự động đối chiếu!")
+            st.success(f"Đã nạp {c} văn bản đến HPNET (từ tổng số {raw} dòng trong file) và tự động đối chiếu!")
 
 with col_up2:
     st.info("📤 VĂN BẢN ĐI")
     file_out_voffice = st.file_uploader("Kéo thả file Văn bản đi - VOFFICE", type=["xlsx", "xls"], key="out_voffice")
     if file_out_voffice:
         with st.spinner("Đang xử lý VOFFICE..."):
-            c = process_uploaded_file(file_out_voffice, 'OUTGOING', 'VOFFICE')
+            c, raw = process_uploaded_file(file_out_voffice, 'OUTGOING', 'VOFFICE')
             match_documents('VOFFICE')
-            st.success(f"Đã nạp {c} văn bản đi VOFFICE và tự động đối chiếu!")
+            st.success(f"Đã nạp {c} văn bản đi VOFFICE (từ tổng số {raw} dòng trong file) và tự động đối chiếu!")
             
     file_out_hpnet = st.file_uploader("Kéo thả file Văn bản đi - HPNET", type=["xlsx", "xls"], key="out_hpnet")
     if file_out_hpnet:
         with st.spinner("Đang xử lý HPNET..."):
-            c = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
+            c, raw = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
             match_documents('HPNET')
-            st.success(f"Đã nạp {c} văn bản đi HPNET và tự động đối chiếu!")
+            st.success(f"Đã nạp {c} văn bản đi HPNET (từ tổng số {raw} dòng trong file) và tự động đối chiếu!")
 
 if st.button("🔄 Chạy Đối Chiếu Tự Động TOÀN HỆ THỐNG (VOFFICE + HPNET)", type="primary", use_container_width=True):
     with st.spinner("Đang phân tích và đối chiếu toàn bộ hệ thống..."):
