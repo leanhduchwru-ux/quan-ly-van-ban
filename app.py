@@ -314,6 +314,12 @@ try:
         for i, (dtype, count) in enumerate(sorted_sbn_types):
             with cols[i % num_cols]:
                 st.metric(label=f"Số lượng {dtype}", value=count)
+                
+        # Hiển thị danh sách chi tiết
+        st.markdown("**Danh sách chi tiết văn bản Sở, Ban, Ngành nợ đọng:**")
+        df_sbn = pd.DataFrame([dict(r) for r in so_ban_nganh_docs])
+        df_sbn.insert(0, 'TT', range(1, 1 + len(df_sbn)))
+        st.dataframe(df_sbn, use_container_width=True, hide_index=True)
     else:
         st.success("Tuyệt vời! Không có văn bản nợ đọng từ các Sở, ban, ngành.")
 
@@ -327,6 +333,12 @@ try:
         for i, (dtype, count) in enumerate(sorted_ct_types):
             with cols[i % num_cols]:
                 st.metric(label=f"Số lượng {dtype}", value=count)
+                
+        # Hiển thị danh sách chi tiết
+        st.markdown("**Danh sách chi tiết văn bản của Chủ tịch Công ty nợ đọng:**")
+        df_ct = pd.DataFrame([dict(r) for r in chu_tich_docs])
+        df_ct.insert(0, 'TT', range(1, 1 + len(df_ct)))
+        st.dataframe(df_ct, use_container_width=True, hide_index=True)
     else:
         st.success("Tuyệt vời! Không có văn bản nợ đọng từ Chủ tịch Công ty.")
         
