@@ -40,15 +40,110 @@ def render_global_dashboard():
         total_in = conn.execute("SELECT COUNT(*) FROM documents WHERE type = 'INCOMING'").fetchone()[0]
         total_out = conn.execute("SELECT COUNT(*) FROM documents WHERE type = 'OUTGOING'").fetchone()[0]
         
-        # Số lượng tồn đọng thực sự (bỏ qua 'Có văn bản đi' và 'Nhận để biết')
         pending = conn.execute("SELECT COUNT(*) FROM document_relations WHERE match_status LIKE '%Chưa có%'").fetchone()[0]
         
         if total_in > 0 or total_out > 0:
-            st.markdown("### 📊 Tổng Quan Toàn Hệ Thống")
+            st.markdown("### 📊 Tổng Quan Toàn Cơ Quan")
             g1, g2, g3 = st.columns(3)
-            g1.metric("📥 Tổng số Văn bản đến", total_in)
-            g2.metric("📤 Tổng số Văn bản đi", total_out)
-            g3.metric("🔥 Tồn đọng cần xử lý", pending, delta="Cảnh báo", delta_color="inverse")
+            g1.metric("📥 Tổng số Văn bản đến (Cả 2 HT)", total_in)
+            g2.metric("📤 Tổng số Văn bản đi (Cả 2 HT)", total_out)
+            g3.metric("🔥 Tồn đọng cần xử lý (Cả 2 HT)", pending, delta="Cảnh báo", delta_color="inverse")
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Row 1 of charts
+            import plotly.express as px
+            import pandas as pd
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**Tỷ lệ trạng thái văn bản (Toàn Hệ thống)**")
+                status_rows = conn.execute("SELECT match_status, COUNT(*) FROM document_relations GROUP BY match_status").fetchall()
+                if status_rows:
+                    status_df = pd.DataFrame(status_rows, columns=['Trạng thái', 'Số lượng'])
+                    status_df['Trạng thái'] = status_df['Trạng thái'].apply(lambda x: 
+                        '🟡 Đang nhận việc' if 'Đang' in x else
+                        '🔴 Chưa có trả lời' if 'Chưa' in x else
+                        '🟢 Có văn bản đi' if 'Có' in x else
+                        '🔵 Nhận để biết' if 'biết' in x else x
+                    )
+                    fig_status = px.pie(status_df, values='Số lượng', names='Trạng thái', hole=0.4,
+                         color='Trạng thái',
+                         color_discrete_map={
+                             '🟡 Đang nhận việc': '#eab308', 
+                             '🔴 Chưa có trả lời': '#ef4444', 
+                             '🟢 Có văn bản đi': '#22c55e',
+                             '🔵 Nhận để biết': '#3b82f6'
+                         })
+                    fig_status.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=True, legend=dict(orientation="h", y=-0.2))
+                    st.plotly_chart(fig_status, use_container_width=True)
+            
+            with c2:
+                st.markdown("**Nguồn phân bổ văn bản**")
+                source_rows = conn.execute("SELECT content, type, COUNT(*) FROM documents GROUP BY content, type").fetchall()
+                if source_rows:
+                    source_df = pd.DataFrame(source_rows, columns=['Hệ thống', 'Loại', 'Số lượng'])
+                    source_df['Phân loại'] = source_df.apply(lambda row: f"{row['Hệ thống']} {'Đến' if row['Loại'] == 'INCOMING' else 'Đi'}", axis=1)
+                    fig_source = px.pie(source_df, values='Số lượng', names='Phân loại', hole=0.6,
+                        color_discrete_sequence=px.colors.sequential.Teal)
+                    fig_source.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=True, legend=dict(orientation="h", y=-0.2))
+                    st.plotly_chart(fig_source, use_container_width=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Row 2 of charts
+            c3, c4 = st.columns(2)
+            with c3:
+                st.markdown("**Top 10 cá nhân/đơn vị nợ việc nhất (Cả 2 HT)**")
+                unanswered_tasks = conn.execute('''
+                    SELECT t.assignee FROM tasks t 
+                    JOIN document_relations r ON t.document_id = r.incoming_id 
+                    WHERE r.match_status LIKE '%Chưa có%'
+                ''').fetchall()
+                if unanswered_tasks:
+                    assignee_counts = {}
+                    for row in unanswered_tasks:
+                        if row[0]:
+                            for person in str(row[0]).split(','):
+                                p = person.strip()
+                                if p:
+                                    assignee_counts[p] = assignee_counts.get(p, 0) + 1
+                    if assignee_counts:
+                        bar_data = pd.DataFrame(list(assignee_counts.items()), columns=['Người xử lý', 'Số lượng'])
+                        bar_data = bar_data.sort_values(by='Số lượng', ascending=False).head(10)
+                        fig_bar = px.bar(bar_data, x='Số lượng', y='Người xử lý', orientation='h', color_discrete_sequence=['#ef4444'])
+                        fig_bar.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=20, b=20, l=0, r=0))
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    else:
+                        st.success("Tuyệt vời! Không có cá nhân nào bị tồn đọng việc.")
+                else:
+                    st.success("Tuyệt vời! Cơ quan không có văn bản nợ đọng.")
+            
+            with c4:
+                st.markdown("**So sánh tiến độ giữa VOFFICE và HPNET**")
+                sys_status_rows = conn.execute('''
+                    SELECT i.content, r.match_status, COUNT(*) 
+                    FROM document_relations r
+                    JOIN documents i ON r.incoming_id = i.id
+                    GROUP BY i.content, r.match_status
+                ''').fetchall()
+                
+                if sys_status_rows:
+                    sys_df = pd.DataFrame(sys_status_rows, columns=['Hệ thống', 'Trạng thái gốc', 'Số lượng'])
+                    sys_df['Trạng thái'] = sys_df['Trạng thái gốc'].apply(lambda x: 
+                        'Đang nhận' if 'Đang' in x else
+                        'Chưa trả lời' if 'Chưa' in x else
+                        'Có VB đi' if 'Có' in x else
+                        'Để biết' if 'biết' in x else x
+                    )
+                    fig_stack = px.bar(sys_df, x="Hệ thống", y="Số lượng", color="Trạng thái",
+                        color_discrete_map={
+                            'Đang nhận': '#eab308', 
+                            'Chưa trả lời': '#ef4444', 
+                            'Có VB đi': '#22c55e',
+                            'Để biết': '#3b82f6'
+                        }, barmode='stack')
+                    fig_stack.update_layout(margin=dict(t=20, b=20, l=0, r=0), legend=dict(orientation="h", y=-0.2))
+                    st.plotly_chart(fig_stack, use_container_width=True)
+
             st.markdown("---")
     finally:
         conn.close()
