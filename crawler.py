@@ -14,10 +14,10 @@ SYSTEMS = [
         'login_url': 'https://vanban.vpdt.com.vn/login',
         'username_env': 'VPDT_USERNAME',
         'password_env': 'VPDT_PASSWORD',
-        'username_selector': 'input[name="username"]',
-        'password_selector': 'input[name="password"]',
-        'submit_selector': 'button[type="submit"]',
-        'verify_selector': '.user-profile, .logout-btn'
+        'username_selector': 'input[type="text"]',
+        'password_selector': 'input[type="password"]',
+        'submit_selector': 'button, .z-button',
+        'verify_selector': '.z-window-embedded, .z-label'
     },
     {
         'key': 'hpnet',
@@ -25,10 +25,10 @@ SYSTEMS = [
         'login_url': 'https://qlvb.hpnet.vn/style/qlvb2013/Login.aspx',
         'username_env': 'HPNET_USERNAME',
         'password_env': 'HPNET_PASSWORD',
-        'username_selector': 'input[name="username"]',
-        'password_selector': 'input[name="password"]',
-        'submit_selector': 'button[type="submit"]',
-        'verify_selector': '.user-profile, .logout-btn'
+        'username_selector': '#Login1_UserName',
+        'password_selector': '#Login1_Password',
+        'submit_selector': '#Login1_Login',
+        'verify_selector': '.user-profile, .logout-btn, a[href*="logout"]'
     }
 ]
 
