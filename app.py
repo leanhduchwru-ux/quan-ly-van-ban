@@ -264,33 +264,7 @@ try:
 
 
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🚨 Phân loại nhóm Văn bản đến của Chủ tịch Công ty (Trương Mạnh Tiến) theo trích yếu")
-    
-    out_summaries = set([clean_for_dedup(r['Trích yếu']) for r in outgoing_docs if clean_for_dedup(r['Trích yếu'])])
-    chu_tich_docs = []
-    for r in incoming_docs:
-        key = clean_for_dedup(r['Trích yếu'])
-        if key and key not in out_summaries:
-            source = str(r['Nơi ban hành']).lower() if r['Nơi ban hành'] else ""
-            if "chủ tịch" in source:
-                chu_tich_docs.append(r)
-                
-    sorted_ct_types = count_doc_types(chu_tich_docs)
-    if sorted_ct_types:
-        num_cols = 4
-        cols = st.columns(num_cols)
-        for i, (dtype, count) in enumerate(sorted_ct_types):
-            with cols[i % num_cols]:
-                st.metric(label=f"Số lượng {dtype}", value=count)
-                
-        # Hiển thị danh sách chi tiết
-        st.markdown("**Danh sách chi tiết văn bản của Chủ tịch Công ty nợ đọng:**")
-        df_ct = pd.DataFrame([dict(r) for r in chu_tich_docs])
-        df_ct.insert(0, 'TT', range(1, 1 + len(df_ct)))
-        st.dataframe(df_ct, use_container_width=True, hide_index=True)
-    else:
-        st.success("Tuyệt vời! Không có văn bản nợ đọng từ Chủ tịch Công ty.")
+
         
 finally:
     conn.close()
