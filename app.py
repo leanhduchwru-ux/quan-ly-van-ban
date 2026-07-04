@@ -272,21 +272,27 @@ try:
     st.info(f"**Tổng số lượng:** {len(incoming_docs)}")
     st.markdown("**Phân loại (theo trích yếu)**")
     sorted_in_types = count_doc_types(incoming_docs)
-    cv_in = next((count for dtype, count in sorted_in_types if "công văn" in dtype.lower()), 0)
-    if cv_in > 0:
-        st.metric(label="Số lượng Công văn", value=cv_in)
+    if sorted_in_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_in_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
     else:
-        st.info("Chưa có dữ liệu Công văn.")
+        st.info("Chưa có dữ liệu.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 📊 Thống kê văn bản đi")
     st.info(f"**Tổng số lượng:** {len(outgoing_docs)}")
     st.markdown("**Phân loại (theo trích yếu)**")
     sorted_out_types = count_doc_types(outgoing_docs)
-    cv_out = next((count for dtype, count in sorted_out_types if "công văn" in dtype.lower()), 0)
-    if cv_out > 0:
-        st.metric(label="Số lượng Công văn", value=cv_out)
+    if sorted_out_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_out_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
     else:
-        st.info("Chưa có dữ liệu Công văn.")
+        st.info("Chưa có dữ liệu.")
 finally:
     conn.close()
