@@ -204,16 +204,24 @@ try:
     t1, t2 = st.tabs(["📥 Văn bản đến Voffice+Hpnet", "📤 Văn bản đi Voffice+Hpnet"])
     
     with t1:
+        st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau)")
         if incoming_docs:
             df_in = pd.DataFrame([dict(row) for row in incoming_docs])
+            if 'Ngày ban hành' in df_in.columns:
+                df_in['Ngày ban hành_dt'] = pd.to_datetime(df_in['Ngày ban hành'], dayfirst=True, errors='coerce')
+                df_in = df_in.sort_values(by='Ngày ban hành_dt', ascending=False, na_position='last').drop(columns=['Ngày ban hành_dt'])
             df_in.insert(0, 'TT', range(1, 1 + len(df_in)))
             st.dataframe(df_in, use_container_width=True, hide_index=True)
         else:
             st.info("Chưa có dữ liệu Văn bản đến.")
             
     with t2:
+        st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau)")
         if outgoing_docs:
             df_out = pd.DataFrame([dict(row) for row in outgoing_docs])
+            if 'Ngày ban hành' in df_out.columns:
+                df_out['Ngày ban hành_dt'] = pd.to_datetime(df_out['Ngày ban hành'], dayfirst=True, errors='coerce')
+                df_out = df_out.sort_values(by='Ngày ban hành_dt', ascending=False, na_position='last').drop(columns=['Ngày ban hành_dt'])
             df_out.insert(0, 'TT', range(1, 1 + len(df_out)))
             st.dataframe(df_out, use_container_width=True, hide_index=True)
         else:
