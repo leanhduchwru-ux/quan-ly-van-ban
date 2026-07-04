@@ -281,6 +281,53 @@ try:
             
         return sorted(doc_types_count.items(), key=lambda x: x[1], reverse=True)
 
+    def count_doc_types_by_ky_hieu(docs):
+        ky_hieu_mapping = {
+            "QĐ": "Quyết định",
+            "QD": "Quyết định",
+            "TB": "Thông báo",
+            "BC": "Báo cáo",
+            "TTR": "Tờ trình",
+            "TT": "Tờ trình",
+            "KH": "Kế hoạch",
+            "HD": "Hướng dẫn",
+            "CT": "Chỉ thị",
+            "NQ": "Nghị quyết",
+            "GM": "Giấy mời",
+            "GTT": "Giấy triệu tập",
+            "CTR": "Chương trình",
+            "KL": "Kết luận",
+            "QC": "Quy chế",
+            "QYĐ": "Quy định",
+            "CV": "Công văn",
+            "PA": "Phương án",
+            "BB": "Biên bản"
+        }
+        doc_types_count = {}
+        for r in docs:
+            ky_hieu = str(r['Ký hiệu']).strip() if r['Ký hiệu'] else ""
+            if not ky_hieu or ky_hieu.lower() == 'nan':
+                continue
+            
+            parts = ky_hieu.split('/')
+            if len(parts) > 1:
+                suffix = parts[-1]
+                type_acronym = suffix.split('-')[0].strip().upper()
+                
+                if type_acronym in ky_hieu_mapping:
+                    found_type = ky_hieu_mapping[type_acronym]
+                else:
+                    if any(char.isdigit() for char in type_acronym):
+                        found_type = "Khác"
+                    else:
+                        found_type = f"Loại {type_acronym}"
+                        
+                doc_types_count[found_type] = doc_types_count.get(found_type, 0) + 1
+            else:
+                doc_types_count["Khác"] = doc_types_count.get("Khác", 0) + 1
+                
+        return sorted(doc_types_count.items(), key=lambda x: x[1], reverse=True)
+
     st.markdown("#### 📑 Phân loại Nhóm Văn bản đi (Theo trích yếu)")
     sorted_all_types = count_doc_types(outgoing_docs)
     if sorted_all_types:
@@ -290,7 +337,19 @@ try:
             with cols[i % num_cols]:
                 st.metric(label=f"Số lượng {dtype}", value=count)
     else:
-        st.info("Chưa có dữ liệu văn bản đi để phân tích.")
+        st.info("Chưa có dữ liệu văn bản đi để phân tích theo trích yếu.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 📑 Phân loại Nhóm Văn bản đi (Theo ký hiệu)")
+    sorted_ky_hieu_types = count_doc_types_by_ky_hieu(outgoing_docs)
+    if sorted_ky_hieu_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_ky_hieu_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+    else:
+        st.info("Chưa có dữ liệu văn bản đi để phân tích theo ký hiệu.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("#### 📑 Phân loại Nhóm Văn bản đến (Theo Trích yếu)")
