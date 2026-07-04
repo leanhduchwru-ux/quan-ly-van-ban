@@ -673,3 +673,29 @@ def generate_excel_report(df, system_name):
                 key=f"download_HPNET",
                 use_container_width=True
             )
+
+    st.markdown("---")
+    st.markdown("### 🐙 ĐỒNG BỘ GIAO VIỆC LÊN GITHUB KANBAN")
+    st.info("Tự động hóa luồng giao việc: Hệ thống sẽ tự động quét danh sách Tồn đọng và khởi tạo các thẻ công việc (Issues) tương ứng trên bảng Kanban của GitHub để đôn đốc.")
+    
+    gh_col1, gh_col2 = st.columns([3, 1])
+    with gh_col1:
+        gh_token = st.text_input("Nhập mã Personal Access Token (PAT) của GitHub:", type="password", help="Mã Token bắt đầu bằng 'ghp_'. Cần có quyền 'repo' và 'project'.")
+    
+    with gh_col2:
+        st.markdown("<br>", unsafe_allow_html=True) # Spacer
+        if st.button("🚀 Đẩy Tồn đọng lên GitHub", use_container_width=True, type="primary"):
+            if not gh_token:
+                st.error("Vui lòng nhập mã Token!")
+            else:
+                with st.spinner("Đang kết nối GitHub và tạo thẻ công việc..."):
+                    try:
+                        import github_sync
+                        success, msg = github_sync.sync_to_github(token=gh_token)
+                        if success:
+                            st.success(msg)
+                            st.balloons()
+                        else:
+                            st.error(msg)
+                    except Exception as e:
+                        st.error(f"Lỗi hệ thống khi chạy kịch bản: {str(e)}")

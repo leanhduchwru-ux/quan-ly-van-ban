@@ -34,24 +34,24 @@ def setup_labels(repo):
             repo.create_label(name=lbl["name"], color=lbl["color"], description=lbl["description"])
             print(f"✨ Đã tạo nhãn mới: '{lbl['name']}'")
 
-def sync_to_github():
-    print("🚀 Bắt đầu tiến trình đồng bộ Tồn đọng lên GitHub Issues...\n")
-    
-    if GITHUB_TOKEN == "YOUR_GITHUB_TOKEN_HERE":
-        print("❌ LỖI NGHIÊM TRỌNG: Bạn chưa cấu hình GITHUB_TOKEN!")
-        print("💡 Hướng dẫn: Mở file github_sync.py và dán mã token của bạn vào dòng 10.")
-        sys.exit(1)
+def sync_to_github(token=None):
+    if not token:
+        token = GITHUB_TOKEN
+        
+    if token == "YOUR_GITHUB_TOKEN_HERE" or not token:
+        return False, "❌ LỖI NGHIÊM TRỌNG: Bạn chưa cung cấp GITHUB_TOKEN!"
 
     try:
-        g = Github(GITHUB_TOKEN)
+        g = Github(token)
         repo = g.get_repo(REPO_NAME)
     except Exception as e:
-        print(f"❌ Lỗi kết nối GitHub (Sai Token hoặc Tên Repo): {e}")
-        sys.exit(1)
+        return False, f"❌ Lỗi kết nối GitHub (Sai Token hoặc Repo không tồn tại): {e}"
         
-    setup_labels(repo)
+    try:
+        setup_labels(repo)
+    except Exception as e:
+        print(f"Warning: Could not setup labels: {e}")
     
-    print("\n--- 📥 Đọc dữ liệu Tồn đọng từ Cơ sở dữ liệu ---")
     conn = get_connection()
     try:
         # Lấy danh sách các văn bản "Chưa có văn bản trả lời"
@@ -69,16 +69,14 @@ def sync_to_github():
         ''').fetchall()
         
         if not unanswered_docs:
-            print("🎉 Tuyệt vời! Không có văn bản nào tồn đọng. Không cần đồng bộ.")
-            return
+            return True, "🎉 Tuyệt vời! Cơ quan không có văn bản nào tồn đọng. Không cần đồng bộ."
 
-        print(f"🔍 Phát hiện {len(unanswered_docs)} văn bản tồn đọng. Đang đối chiếu với GitHub...")
-        
         # Lấy danh sách Issues hiện tại để tránh tạo trùng
         open_issues = repo.get_issues(state='open')
         existing_issue_titles = [issue.title for issue in open_issues]
         
         created_count = 0
+        skipped_count = 0
         for doc in unanswered_docs:
             doc_no = doc['document_no'] if doc['document_no'] else "Không số"
             summary = doc['summary'] if doc['summary'] else "Không có trích yếu"
@@ -94,7 +92,7 @@ def sync_to_github():
             is_duplicate = any(doc_no in title for title in existing_issue_titles if doc_no != "Không số")
             
             if is_duplicate:
-                print(f"⏩ Bỏ qua (Đã có trên Kanban): {doc_no}")
+                skipped_count += 1
                 continue
                 
             # Tạo nội dung mô tả chi tiết của Issue
@@ -114,19 +112,18 @@ def sync_to_github():
 ---
 *Văn bản này đang quá hạn hoặc chưa có công văn trả lời. Đề nghị chuyên viên khẩn trương xử lý và chuyển trạng thái trên bảng Kanban.*
 """
-            print(f"⏳ Đang tạo thẻ Kanban cho: {doc_no}...")
             issue = repo.create_issue(
                 title=issue_title,
                 body=issue_body,
                 labels=["Status: Pending", "Priority: High", "Type: Incoming"]
             )
-            print(f"✅ Thành công! Issue #{issue.number} (Giao cho: {assignee})")
             created_count += 1
             
-        print(f"\n🏁 Đồng bộ hoàn tất! Đã khởi tạo {created_count} thẻ Kanban mới.")
+        return True, f"✅ Đồng bộ hoàn tất! Đã khởi tạo **{created_count} thẻ Kanban mới** (Bỏ qua {skipped_count} thẻ đã tồn tại)."
             
     finally:
         conn.close()
 
 if __name__ == "__main__":
-    sync_to_github()
+    success, msg = sync_to_github()
+    print(msg)
