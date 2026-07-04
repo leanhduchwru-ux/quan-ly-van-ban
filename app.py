@@ -22,7 +22,7 @@ st.markdown("""
 st.title("Quản lý văn bản Công ty TNHH MTV Khai thác công trình Thủy lợi Hải Dương")
 
 st.markdown("### 📥 Nạp dữ liệu từ File Excel")
-st.markdown("Vui lòng tải lên file danh sách xuất ra từ hệ thống. File cần có các cột chứa chữ **'Ký hiệu'** và **'Trích yếu'**.")
+st.markdown("Vui lòng tải lên file báo cáo in sổ từ hệ thống quản lý văn bản điều hành Voffice, Hpnet")
 
 def clean_for_dedup(text):
     if not text or pd.isna(text): return ""
