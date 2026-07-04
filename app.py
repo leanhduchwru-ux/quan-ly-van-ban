@@ -204,7 +204,7 @@ try:
     t1, t2 = st.tabs(["📥 Văn bản đến Voffice+Hpnet", "📤 Văn bản đi Voffice+Hpnet"])
     
     with t1:
-        st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau)")
+        st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau từ tháng 1 đến tháng 12 của năm nhập liệu)")
         if incoming_docs:
             df_in = pd.DataFrame([dict(row) for row in incoming_docs])
             if 'Ngày ban hành' in df_in.columns:
@@ -216,7 +216,7 @@ try:
             st.info("Chưa có dữ liệu Văn bản đến.")
             
     with t2:
-        st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau)")
+        st.caption("(Sắp xếp theo ngày ban hành: mới trước cũ sau từ tháng 1 đến tháng 12 của năm nhập liệu)")
         if outgoing_docs:
             df_out = pd.DataFrame([dict(row) for row in outgoing_docs])
             if 'Ngày ban hành' in df_out.columns:
