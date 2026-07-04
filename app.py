@@ -98,11 +98,15 @@ st.markdown("Vui lòng tải lên file danh sách xuất ra từ hệ thống. F
 
 col_up1, col_up2 = st.columns(2)
 
-def process_uploaded_file(file, doc_type):
+def process_uploaded_file(file, doc_type, system_name):
     if file is not None:
         try:
             df = pd.read_excel(file, header=None)
             conn = get_connection()
+            
+            # Xóa dữ liệu cũ của riêng Hệ thống này (VOFFICE hoặc HPNET) để tránh trùng lặp
+            # Lưu ý: Cột content được dùng để lưu tên hệ thống (VOFFICE/HPNET)
+            conn.execute("DELETE FROM documents WHERE type = ? AND content = ?", (doc_type, system_name))
             
             # Lấy danh sách văn bản đã có để tránh trùng lặp
             existing_docs = {row['document_no'] for row in conn.execute("SELECT document_no FROM documents WHERE type = ?", (doc_type,)).fetchall()}
@@ -154,8 +158,9 @@ def process_uploaded_file(file, doc_type):
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
                         if doc_number not in existing_docs:
                             doc_id = str(uuid.uuid4())
-                            conn.execute("INSERT INTO documents (id, type, document_no, issued_date, system_source, summary) VALUES (?, ?, ?, ?, ?, ?)",
-                                         (doc_id, doc_type, doc_number, doc_date, agency, summary))
+                            # Lưu tên hệ thống vào cột content, lưu cơ quan vào cột system_source
+                            conn.execute("INSERT INTO documents (id, type, document_no, issued_date, system_source, summary, content) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                         (doc_id, doc_type, doc_number, doc_date, agency, summary, system_name))
                             
                             # Xử lý bóc tách Người xử lý (Lấy chính xác người liền sau Trương Mạnh Tiến)
                             if assignee_col != -1 and pd.notna(row[assignee_col]):
@@ -198,19 +203,31 @@ def process_uploaded_file(file, doc_type):
 
 with col_up1:
     st.info("📥 VĂN BẢN ĐẾN")
-    file_in = st.file_uploader("Kéo thả file Văn bản đến (.xlsx)", type=["xlsx", "xls"], key="in")
-    if file_in:
-        with st.spinner("Đang xử lý..."):
-            c = process_uploaded_file(file_in, 'INCOMING')
-            st.success(f"Đã nạp {c} văn bản đến!")
+    file_in_voffice = st.file_uploader("Kéo thả file Văn bản đến - VOFFICE", type=["xlsx", "xls"], key="in_voffice")
+    if file_in_voffice:
+        with st.spinner("Đang xử lý VOFFICE..."):
+            c = process_uploaded_file(file_in_voffice, 'INCOMING', 'VOFFICE')
+            st.success(f"Đã nạp {c} văn bản đến VOFFICE!")
+            
+    file_in_hpnet = st.file_uploader("Kéo thả file Văn bản đến - HPNET", type=["xlsx", "xls"], key="in_hpnet")
+    if file_in_hpnet:
+        with st.spinner("Đang xử lý HPNET..."):
+            c = process_uploaded_file(file_in_hpnet, 'INCOMING', 'HPNET')
+            st.success(f"Đã nạp {c} văn bản đến HPNET!")
 
 with col_up2:
     st.info("📤 VĂN BẢN ĐI")
-    file_out = st.file_uploader("Kéo thả file Văn bản đi (.xlsx)", type=["xlsx", "xls"], key="out")
-    if file_out:
-        with st.spinner("Đang xử lý..."):
-            c = process_uploaded_file(file_out, 'OUTGOING')
-            st.success(f"Đã nạp {c} văn bản đi!")
+    file_out_voffice = st.file_uploader("Kéo thả file Văn bản đi - VOFFICE", type=["xlsx", "xls"], key="out_voffice")
+    if file_out_voffice:
+        with st.spinner("Đang xử lý VOFFICE..."):
+            c = process_uploaded_file(file_out_voffice, 'OUTGOING', 'VOFFICE')
+            st.success(f"Đã nạp {c} văn bản đi VOFFICE!")
+            
+    file_out_hpnet = st.file_uploader("Kéo thả file Văn bản đi - HPNET", type=["xlsx", "xls"], key="out_hpnet")
+    if file_out_hpnet:
+        with st.spinner("Đang xử lý HPNET..."):
+            c = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
+            st.success(f"Đã nạp {c} văn bản đi HPNET!")
 
 if st.button("🔄 Chạy Đối Chiếu Tự Động", type="primary", use_container_width=True):
     with st.spinner("Đang phân tích và đối chiếu..."):
