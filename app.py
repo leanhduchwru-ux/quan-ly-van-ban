@@ -93,31 +93,65 @@ def generate_mock_data():
     finally:
         conn.close()
 
-from crawler import run_crawler
-import asyncio
+st.markdown("### 📥 Nạp dữ liệu từ File Excel")
+st.markdown("Vui lòng tải lên file danh sách xuất ra từ hệ thống. File cần có các cột chứa chữ **'Ký hiệu'** và **'Trích yếu'**.")
 
-col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+col_up1, col_up2 = st.columns(2)
 
-with col_btn1:
-    if st.button("🔄 Đồng bộ & Đối chiếu Dữ liệu", type="primary", use_container_width=True):
-        with st.spinner("Đang chạy đối chiếu tự động..."):
-            updated = match_documents()
-            st.success(f"Đã đối chiếu thành công {updated} văn bản đến!")
+def process_uploaded_file(file, doc_type):
+    if file is not None:
+        try:
+            df = pd.read_excel(file)
+            conn = get_connection()
+            # Xóa dữ liệu cũ để tránh trùng lặp khi upload lại
+            conn.execute("DELETE FROM documents WHERE type = ?", (doc_type,))
+            
+            count = 0
+            for index, row in df.iterrows():
+                row_dict = {str(k).strip().lower(): v for k, v in row.items()}
+                doc_number = ""
+                summary = ""
+                
+                # Tìm cột tương ứng bằng từ khóa mềm dẻo
+                for k, v in row_dict.items():
+                    if 'ký hiệu' in k or 's.k.h' in k or 'số đi' in k:
+                        if pd.notna(v): doc_number = str(v).strip()
+                    if 'trích yếu' in k:
+                        if pd.notna(v): summary = str(v).strip()
+                
+                if doc_number and doc_number.lower() != 'nan':
+                    conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
+                                 (str(uuid.uuid4()), doc_type, doc_number, summary))
+                    count += 1
+            
+            conn.commit()
+            conn.close()
+            return count
+        except Exception as e:
+            st.error(f"Lỗi đọc file: {e}")
+            return 0
+    return 0
 
-with col_btn2:
-    if st.button("📥 Nạp dữ liệu Test mẫu", use_container_width=True):
-        with st.spinner("Đang nạp dữ liệu..."):
-            generate_mock_data()
-            match_documents()
-            st.success("Đã nạp dữ liệu mẫu thành công! Vui lòng làm mới lại trang.")
+with col_up1:
+    st.info("📥 VĂN BẢN ĐẾN")
+    file_in = st.file_uploader("Kéo thả file Văn bản đến (.xlsx)", type=["xlsx", "xls"], key="in")
+    if file_in:
+        with st.spinner("Đang xử lý..."):
+            c = process_uploaded_file(file_in, 'INCOMING')
+            st.success(f"Đã nạp {c} văn bản đến!")
 
-with col_btn3:
-    if st.button("🚀 Chạy Crawler lấy dữ liệu thật", use_container_width=True):
-        with st.spinner("Đang cài đặt và khởi động trình duyệt ảo (Mất khoảng 1-2 phút)..."):
-            results = asyncio.run(run_crawler())
-            st.success("Crawler đã chạy xong!")
-            for r in results:
-                st.info(r)
+with col_up2:
+    st.info("📤 VĂN BẢN ĐI")
+    file_out = st.file_uploader("Kéo thả file Văn bản đi (.xlsx)", type=["xlsx", "xls"], key="out")
+    if file_out:
+        with st.spinner("Đang xử lý..."):
+            c = process_uploaded_file(file_out, 'OUTGOING')
+            st.success(f"Đã nạp {c} văn bản đi!")
+
+if st.button("🔄 Chạy Đối Chiếu Tự Động", type="primary", use_container_width=True):
+    with st.spinner("Đang phân tích và đối chiếu..."):
+        updated = match_documents()
+        st.success(f"Đã đối chiếu thành công {updated} văn bản! Vui lòng xem kết quả bên dưới.")
 
 
 st.markdown("---")
