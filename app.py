@@ -258,6 +258,7 @@ relations = conn.execute('''
         i.issued_date as inc_date,
         i.system_source as inc_agency,
         i.summary as inc_summary,
+        i.content as system_name,
         o.document_no as out_doc,
         o.issued_date as out_date,
         o.system_source as out_agency,
@@ -267,20 +268,21 @@ relations = conn.execute('''
     LEFT JOIN documents o ON r.outgoing_id = o.id
 ''').fetchall()
 
+data_voffice = []
+data_hpnet = []
+stats_voffice = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
+stats_hpnet = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
+
 if len(relations) == 0:
     st.info("Cơ sở dữ liệu đang trống. Vui lòng tải dữ liệu từ file Excel lên.")
-    stats = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
-    data = []
 else:
-    stats = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
-    data = []
     for rel in relations:
-        stats[rel['match_status']] = stats.get(rel['match_status'], 0) + 1
+        sys_name = rel['system_name']
+        status = rel['match_status']
         
         tasks = conn.execute("SELECT assignee FROM tasks WHERE document_id = ?", (rel['inc_id'],)).fetchall()
         assignees = ", ".join([t['assignee'] for t in tasks if t['assignee']]) if tasks else ""
         
-        status = rel['match_status']
         display_status = status
         if status == 'Đang nhận việc':
             display_status = '🟡 Đang nhận việc'
@@ -289,7 +291,7 @@ else:
         elif status == 'Có văn bản đi':
             display_status = '🟢 Có văn bản đi'
             
-        data.append({
+        row_data = {
             "Văn bản đến": rel['inc_doc'],
             "ngày đến": rel['inc_date'] if rel['inc_date'] else "",
             "Nơi gửi đến": rel['inc_agency'] if rel['inc_agency'] else "",
@@ -299,40 +301,58 @@ else:
             "Ngày gửi đi": rel['out_date'] if rel['out_date'] else "",
             "Nơi gửi đi": rel['out_agency'] if rel['out_agency'] else "",
             "Trạng thái": display_status
-        })
+        }
+        
+        if sys_name == 'VOFFICE':
+            stats_voffice[status] = stats_voffice.get(status, 0) + 1
+            data_voffice.append(row_data)
+        elif sys_name == 'HPNET':
+            stats_hpnet[status] = stats_hpnet.get(status, 0) + 1
+            data_hpnet.append(row_data)
+        else:
+            # Dự phòng nếu không có tên hệ thống
+            stats_hpnet[status] = stats_hpnet.get(status, 0) + 1
+            data_hpnet.append(row_data)
+
 conn.close()
-
-col1, col2, col3 = st.columns(3)
-col1.metric("🟡 Đang nhận việc", stats.get("Đang nhận việc", 0))
-col2.metric("🔴 Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
-col3.metric("🟢 Có văn bản đi", stats.get("Có văn bản đi", 0))
-
-st.markdown("### 📋 Bảng Kê Đối Chiếu Văn Bản")
-df = pd.DataFrame(data)
 
 def color_status(val):
     if 'Đang nhận việc' in str(val): return 'color: #eab308; font-weight: bold;'
     elif 'Chưa có' in str(val): return 'color: #ef4444; font-weight: bold;'
     elif 'Có văn bản đi' in str(val): return 'color: #22c55e; font-weight: bold;'
     return ''
-    
-if not df.empty:
-    df.insert(0, 'TT', range(1, 1 + len(df)))
-    st.dataframe(
-        df.style.map(color_status, subset=['Trạng thái']),
-        use_container_width=True, 
-        hide_index=True,
-        column_order=["TT", "Văn bản đến", "ngày đến", "Nơi gửi đến", "Trích yếu", "Người xử lý", "VB đi", "Ngày gửi đi", "Nơi gửi đi", "Trạng thái"],
-        column_config={
-            "TT": st.column_config.NumberColumn("TT", width="small"),
-            "Văn bản đến": st.column_config.TextColumn("Văn bản đến", width="medium"),
-            "ngày đến": st.column_config.TextColumn("ngày đến", width="small"),
-            "Nơi gửi đến": st.column_config.TextColumn("Nơi gửi đến", width="medium"),
-            "Trích yếu": st.column_config.TextColumn("Trích yếu", width="large"),
-            "Người xử lý": st.column_config.TextColumn("Người xử lý", width="medium"),
-            "VB đi": st.column_config.TextColumn("VB đi", width="medium"),
-            "Ngày gửi đi": st.column_config.TextColumn("Ngày gửi đi", width="small"),
-            "Nơi gửi đi": st.column_config.TextColumn("Nơi gửi đi", width="medium"),
-            "Trạng thái": st.column_config.TextColumn("Trạng thái (Hệ thống)", width="medium")
-        }
-    )
+
+def render_table(title, data_list, stats):
+    st.markdown(f"### 📋 {title}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("🟡 Đang nhận việc", stats.get("Đang nhận việc", 0))
+    c2.metric("🔴 Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
+    c3.metric("🟢 Có văn bản đi", stats.get("Có văn bản đi", 0))
+
+    df = pd.DataFrame(data_list)
+    if not df.empty:
+        df.insert(0, 'TT', range(1, 1 + len(df)))
+        st.dataframe(
+            df.style.map(color_status, subset=['Trạng thái']),
+            use_container_width=True, 
+            hide_index=True,
+            column_order=["TT", "Văn bản đến", "ngày đến", "Nơi gửi đến", "Trích yếu", "Người xử lý", "VB đi", "Ngày gửi đi", "Nơi gửi đi", "Trạng thái"],
+            column_config={
+                "TT": st.column_config.NumberColumn("TT", width="small"),
+                "Văn bản đến": st.column_config.TextColumn("Văn bản đến", width="medium"),
+                "ngày đến": st.column_config.TextColumn("ngày đến", width="small"),
+                "Nơi gửi đến": st.column_config.TextColumn("Nơi gửi đến", width="medium"),
+                "Trích yếu": st.column_config.TextColumn("Trích yếu", width="large"),
+                "Người xử lý": st.column_config.TextColumn("Người xử lý", width="medium"),
+                "VB đi": st.column_config.TextColumn("VB đi", width="medium"),
+                "Ngày gửi đi": st.column_config.TextColumn("Ngày gửi đi", width="small"),
+                "Nơi gửi đi": st.column_config.TextColumn("Nơi gửi đi", width="medium"),
+                "Trạng thái": st.column_config.TextColumn("Trạng thái (Hệ thống)", width="medium")
+            }
+        )
+    else:
+        st.info("Chưa có dữ liệu.")
+
+render_table("Bảng Thống Kê Đối Chiếu VB đến VOFFICE", data_voffice, stats_voffice)
+st.markdown("---")
+render_table("Bảng Thống Kê Đối Chiếu VB đến HPNET", data_hpnet, stats_hpnet)
