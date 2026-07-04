@@ -44,10 +44,55 @@ def render_global_dashboard():
         
         if total_in > 0 or total_out > 0:
             st.markdown("### 📊 Tổng Quan Toàn Cơ Quan")
-            g1, g2, g3 = st.columns(3)
-            g1.metric("📥 Tổng số Văn bản đến (Cả 2 HT)", total_in)
-            g2.metric("📤 Tổng số Văn bản đi (Cả 2 HT)", total_out)
-            g3.metric("🔥 Tồn đọng cần xử lý (Cả 2 HT)", pending, delta="Cảnh báo", delta_color="inverse")
+            pending_class = "card-pending-alert" if pending > 0 else "card-pending-0"
+            html_content = f"""
+            <style>
+            .metric-container {{
+                display: flex;
+                justify-content: space-between;
+                gap: 15px;
+                margin-bottom: 20px;
+            }}
+            .metric-card {{
+                flex: 1;
+                padding: 20px;
+                border-radius: 10px;
+                color: white;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                font-family: sans-serif;
+            }}
+            .card-in {{ background: linear-gradient(135deg, #3b82f6, #2563eb); }}
+            .card-out {{ background: linear-gradient(135deg, #10b981, #059669); }}
+            .card-pending-0 {{ background: linear-gradient(135deg, #64748b, #475569); }}
+            .card-pending-alert {{ 
+                background: linear-gradient(135deg, #ef4444, #dc2626); 
+                animation: pulse 2s infinite; 
+            }}
+            @keyframes pulse {{
+                0% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }}
+                70% {{ box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }}
+                100% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }}
+            }}
+            .metric-title {{ font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; opacity: 0.9; }}
+            .metric-value {{ font-size: 2.5rem; font-weight: bold; margin: 0; }}
+            </style>
+            
+            <div class="metric-container">
+                <div class="metric-card card-in">
+                    <div class="metric-title">📥 Tổng số Văn bản đến</div>
+                    <div class="metric-value">{total_in}</div>
+                </div>
+                <div class="metric-card card-out">
+                    <div class="metric-title">📤 Tổng số Văn bản đi</div>
+                    <div class="metric-value">{total_out}</div>
+                </div>
+                <div class="metric-card {pending_class}">
+                    <div class="metric-title">🔥 Tồn đọng cần xử lý</div>
+                    <div class="metric-value">{pending}</div>
+                </div>
+            </div>
+            """
+            st.markdown(html_content, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
             # Row 1 of charts
