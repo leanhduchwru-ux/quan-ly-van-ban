@@ -356,5 +356,26 @@ try:
     else:
         st.success("Tuyệt vời! Không có văn bản nợ đọng từ Chủ tịch Công ty.")
         
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến từ Hpnet (Chưa có văn bản đi)")
+    
+    hpnet_docs = [r for r in incoming_docs if clean_for_dedup(r['Trích yếu']) and clean_for_dedup(r['Trích yếu']) not in out_summaries and r['Hệ thống'] == 'HPNET']
+    
+    sorted_hpnet_types = count_doc_types(hpnet_docs)
+    if sorted_hpnet_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_hpnet_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+                
+        # Hiển thị danh sách chi tiết
+        st.markdown("**Danh sách chi tiết văn bản HPNET nợ đọng:**")
+        df_hpnet = pd.DataFrame([dict(r) for r in hpnet_docs])
+        df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
+        st.dataframe(df_hpnet, use_container_width=True, hide_index=True)
+    else:
+        st.success("Tuyệt vời! Không có văn bản nợ đọng từ HPNET.")
+        
 finally:
     conn.close()
