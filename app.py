@@ -289,6 +289,46 @@ try:
                 st.metric(label=f"Số lượng {dtype}", value=count)
     else:
         st.info("Chưa có dữ liệu văn bản đến để phân tích.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến từ Sở, Ban, Ngành (Chưa có văn bản đi)")
+    
+    out_summaries = set([clean_for_dedup(r['Trích yếu']) for r in outgoing_docs if clean_for_dedup(r['Trích yếu'])])
+    
+    so_ban_nganh_docs = []
+    chu_tich_docs = []
+    
+    for r in incoming_docs:
+        key = clean_for_dedup(r['Trích yếu'])
+        if key and key not in out_summaries:
+            source = str(r['Nơi ban hành']).lower() if r['Nơi ban hành'] else ""
+            if "chủ tịch" in source:
+                chu_tich_docs.append(r)
+            else:
+                so_ban_nganh_docs.append(r)
+                
+    sorted_sbn_types = count_doc_types(so_ban_nganh_docs)
+    if sorted_sbn_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_sbn_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+    else:
+        st.success("Tuyệt vời! Không có văn bản nợ đọng từ các Sở, ban, ngành.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 🚨 NỢ ĐỌNG: Văn bản đến của Chủ tịch Công ty (Chưa có văn bản đi)")
+    
+    sorted_ct_types = count_doc_types(chu_tich_docs)
+    if sorted_ct_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_ct_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+    else:
+        st.success("Tuyệt vời! Không có văn bản nợ đọng từ Chủ tịch Công ty.")
         
 finally:
     conn.close()
