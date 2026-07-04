@@ -101,28 +101,36 @@ col_up1, col_up2 = st.columns(2)
 def process_uploaded_file(file, doc_type):
     if file is not None:
         try:
-            df = pd.read_excel(file)
+            # Đọc không lấy dòng đầu làm header để tự dò tìm
+            df = pd.read_excel(file, header=None)
             conn = get_connection()
-            # Xóa dữ liệu cũ để tránh trùng lặp khi upload lại
             conn.execute("DELETE FROM documents WHERE type = ?", (doc_type,))
             
             count = 0
+            doc_col = -1
+            summary_col = -1
+            
             for index, row in df.iterrows():
-                row_dict = {str(k).strip().lower(): v for k, v in row.items()}
-                doc_number = ""
-                summary = ""
+                # Bươc 1: Dò tìm dòng chứa Tiêu đề cột
+                if doc_col == -1 or summary_col == -1:
+                    for i, val in enumerate(row):
+                        if pd.notna(val):
+                            val_str = str(val).lower()
+                            if 'ký hiệu' in val_str or 's.k.h' in val_str:
+                                doc_col = i
+                            if 'trích yếu' in val_str:
+                                summary_col = i
+                    continue # Bỏ qua dòng tiêu đề sau khi tìm thấy
                 
-                # Tìm cột tương ứng bằng từ khóa mềm dẻo
-                for k, v in row_dict.items():
-                    if 'ký hiệu' in k or 's.k.h' in k or 'số đi' in k:
-                        if pd.notna(v): doc_number = str(v).strip()
-                    if 'trích yếu' in k:
-                        if pd.notna(v): summary = str(v).strip()
-                
-                if doc_number and doc_number.lower() != 'nan':
-                    conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
-                                 (str(uuid.uuid4()), doc_type, doc_number, summary))
-                    count += 1
+                # Bước 2: Đọc dữ liệu từ các dòng bên dưới
+                if doc_col != -1 and summary_col != -1:
+                    doc_number = str(row[doc_col]).strip() if pd.notna(row[doc_col]) else ""
+                    summary = str(row[summary_col]).strip() if pd.notna(row[summary_col]) else ""
+                    
+                    if doc_number and doc_number.lower() not in ['nan', 'none', '']:
+                        conn.execute("INSERT INTO documents (id, type, document_no, summary) VALUES (?, ?, ?, ?)",
+                                     (str(uuid.uuid4()), doc_type, doc_number, summary))
+                        count += 1
             
             conn.commit()
             conn.close()
