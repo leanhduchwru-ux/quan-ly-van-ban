@@ -1,4 +1,4 @@
-﻿import streamlit as st
+import streamlit as st
 import pandas as pd
 from database import get_connection
 import uuid
@@ -24,6 +24,15 @@ st.title("Hệ Thống Quản Lý Văn Bản Điều Hành")
 st.markdown("### 📥 Nạp dữ liệu từ File Excel")
 st.markdown("Vui lòng tải lên file danh sách xuất ra từ hệ thống. File cần có các cột chứa chữ **'Ký hiệu'** và **'Trích yếu'**.")
 
+def clean_for_dedup(text):
+    if not text or pd.isna(text): return ""
+    text = str(text).lower()
+    text = re.sub(r'(v/v\s*:?|về việc\s*:?)', '', text)
+    # Remove all non-alphanumeric characters (keeping vietnamese characters is fine since \W might strip them depending on locale, 
+    # but re in python3 supports unicode with \w. We just remove whitespace and punctuation)
+    text = re.sub(r'[\s\.\,\-\_\:\;\'\"\(\)\[\]\{\}]', '', text)
+    return text
+
 def process_uploaded_file(file, doc_type, system_name):
     if file is not None:
         try:
@@ -35,11 +44,14 @@ def process_uploaded_file(file, doc_type, system_name):
             # Xóa dữ liệu cũ của riêng Hệ thống này (VOFFICE hoặc HPNET) để tránh trùng lặp
             conn.execute("DELETE FROM documents WHERE type = ? AND content = ?", (doc_type, system_name))
             
-            # Lấy danh sách văn bản đã có để tránh trùng lặp
+            # Lấy danh sách văn bản đã có để tránh trùng lặp dựa vào trích yếu
             existing_docs = set()
             for r in conn.execute("SELECT document_no, summary FROM documents WHERE type = ?", (doc_type,)).fetchall():
-                key = f"{str(r['document_no']).strip().lower()}_{str(r['summary']).strip().lower()}"
-                existing_docs.add(key)
+                key = clean_for_dedup(r['summary'])
+                if not key:
+                    key = clean_for_dedup(r['document_no'])
+                if key:
+                    existing_docs.add(key)
             
             doc_col = -1
             summary_col = -1
@@ -83,7 +95,11 @@ def process_uploaded_file(file, doc_type, system_name):
                     
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
                         raw_count += 1
-                        key_to_check = f"{doc_number.strip().lower()}_{summary.strip().lower()}"
+                        
+                        key_to_check = clean_for_dedup(summary)
+                        if not key_to_check:
+                            key_to_check = clean_for_dedup(doc_number)
+                            
                         if key_to_check not in existing_docs:
                             doc_id = str(uuid.uuid4())
                             conn.execute("INSERT INTO documents (id, type, document_no, issued_date, system_source, summary, content) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -113,7 +129,8 @@ def process_uploaded_file(file, doc_type, system_name):
                                 conn.execute("INSERT INTO tasks (id, document_id, assignee, status) VALUES (?, ?, ?, ?)",
                                              (str(uuid.uuid4()), doc_id, assignee, 'Đang xử lý'))
                             
-                            existing_docs.add(key_to_check)
+                            if key_to_check:
+                                existing_docs.add(key_to_check)
                             count += 1
             
             if doc_col == -1 or summary_col == -1:
@@ -161,3 +178,31 @@ with col_up2:
         with st.spinner("Đang xử lý HPNET..."):
             c, raw = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
             st.success(f"Đã nạp {c} văn bản đi HPNET (từ tổng số {raw} dòng trong file)!")
+
+st.markdown("---")
+st.markdown("### 🗃️ Dữ liệu Voffice + Hpnet (Đã loại trừ trùng lặp)")
+
+conn = get_connection()
+try:
+    incoming_docs = conn.execute("SELECT document_no as 'Ký hiệu', summary as 'Trích yếu', issued_date as 'Ngày ban hành', system_source as 'Nơi ban hành', content as 'Hệ thống' FROM documents WHERE type = 'INCOMING' ORDER BY created_at DESC").fetchall()
+    outgoing_docs = conn.execute("SELECT document_no as 'Ký hiệu', summary as 'Trích yếu', issued_date as 'Ngày ban hành', system_source as 'Nơi ban hành', content as 'Hệ thống' FROM documents WHERE type = 'OUTGOING' ORDER BY created_at DESC").fetchall()
+    
+    t1, t2 = st.tabs(["📥 Văn bản đến Voffice+Hpnet", "📤 Văn bản đi Voffice+Hpnet"])
+    
+    with t1:
+        if incoming_docs:
+            df_in = pd.DataFrame([dict(row) for row in incoming_docs])
+            df_in.insert(0, 'TT', range(1, 1 + len(df_in)))
+            st.dataframe(df_in, use_container_width=True, hide_index=True)
+        else:
+            st.info("Chưa có dữ liệu Văn bản đến.")
+            
+    with t2:
+        if outgoing_docs:
+            df_out = pd.DataFrame([dict(row) for row in outgoing_docs])
+            df_out.insert(0, 'TT', range(1, 1 + len(df_out)))
+            st.dataframe(df_out, use_container_width=True, hide_index=True)
+        else:
+            st.info("Chưa có dữ liệu Văn bản đi.")
+finally:
+    conn.close()
