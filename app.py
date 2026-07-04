@@ -318,21 +318,11 @@ try:
     else:
         st.info("Chưa có dữ liệu văn bản đi để phân tích theo trích yếu.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📑 Phân loại Nhóm Văn bản đi (Theo ký hiệu)")
-    sorted_ky_hieu_types = count_doc_types_by_ky_hieu(outgoing_docs)
-    if sorted_ky_hieu_types:
-        num_cols = 4
-        cols = st.columns(num_cols)
-        for i, (dtype, count) in enumerate(sorted_ky_hieu_types):
-            with cols[i % num_cols]:
-                st.metric(label=f"Số lượng {dtype}", value=count)
-    else:
-        st.info("Chưa có dữ liệu văn bản đi để phân tích theo ký hiệu.")
+
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📑 Phân loại Nhóm Văn bản đến (Theo Trích yếu)")
-    sorted_in_types = count_doc_types(incoming_docs)
+    st.markdown(f"#### 📑 Phân loại Nhóm Văn bản đến (Theo ký hiệu). Tổng số văn bản đến là {len(incoming_docs)} trong đó:")
+    sorted_in_types = count_doc_types_by_ky_hieu(incoming_docs)
     if sorted_in_types:
         num_cols = 4
         cols = st.columns(num_cols)
