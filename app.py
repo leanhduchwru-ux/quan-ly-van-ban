@@ -228,62 +228,67 @@ try:
         st.warning(f"⚠️ **Trích yếu văn bản ĐI KHÔNG TRÙNG với văn bản ĐẾN:** {khong_trung_count}")
         
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📑 Phân loại Nhóm Văn bản đến (Theo Trích yếu)")
     
-    # 2. Phân loại số lượng (chỉ văn bản đến)
-    all_summaries = [r['Trích yếu'] for r in incoming_docs]
-    
-    keyword_mapping = {
-        "quyết định": "Quyết định",
-        "thông báo": "Thông báo",
-        "báo cáo": "Báo cáo",
-        "tờ trình": "Tờ trình",
-        "kế hoạch": "Kế hoạch",
-        "hướng dẫn": "Hướng dẫn",
-        "chỉ thị": "Chỉ thị",
-        "nghị quyết": "Nghị quyết",
-        "giấy mời": "Giấy mời",
-        "giấy triệu tập": "Giấy triệu tập",
-        "chương trình": "Chương trình",
-        "kết luận": "Kết luận",
-        "quy định": "Quy định",
-        "quy chế": "Quy chế"
-    }
-    
-    doc_types_count = {}
-    
-    for summary in all_summaries:
-        summary = str(summary).strip() if summary else ""
-        if not summary:
-            continue
-            
-        summary_lower = summary.lower()
+    def count_doc_types(docs):
+        keyword_mapping = {
+            "quyết định": "Quyết định",
+            "thông báo": "Thông báo",
+            "báo cáo": "Báo cáo",
+            "tờ trình": "Tờ trình",
+            "kế hoạch": "Kế hoạch",
+            "hướng dẫn": "Hướng dẫn",
+            "chỉ thị": "Chỉ thị",
+            "nghị quyết": "Nghị quyết",
+            "giấy mời": "Giấy mời",
+            "giấy triệu tập": "Giấy triệu tập",
+            "chương trình": "Chương trình",
+            "kết luận": "Kết luận",
+            "quy định": "Quy định",
+            "quy chế": "Quy chế"
+        }
         
-        # Loại bỏ các tiền tố phổ biến
-        if summary_lower.startswith("v/v"):
-            summary_lower = summary_lower.replace("v/v", "", 1).replace(":", "", 1).strip()
-        elif summary_lower.startswith("về việc"):
-            summary_lower = summary_lower.replace("về việc", "", 1).replace(":", "", 1).strip()
-            
-        found_type = "Công văn (Các loại khác)"
-        
-        for kw, actual_type in keyword_mapping.items():
-            if summary_lower.startswith(kw):
-                found_type = actual_type
-                break
+        doc_types_count = {}
+        for r in docs:
+            summary = str(r['Trích yếu']).strip() if r['Trích yếu'] else ""
+            if not summary:
+                continue
+            summary_lower = summary.lower()
+            if summary_lower.startswith("v/v"):
+                summary_lower = summary_lower.replace("v/v", "", 1).replace(":", "", 1).strip()
+            elif summary_lower.startswith("về việc"):
+                summary_lower = summary_lower.replace("về việc", "", 1).replace(":", "", 1).strip()
                 
-        doc_types_count[found_type] = doc_types_count.get(found_type, 0) + 1
-        
-    sorted_types = sorted(doc_types_count.items(), key=lambda x: x[1], reverse=True)
-    
-    if sorted_types:
+            found_type = "Công văn (Các loại khác)"
+            for kw, actual_type in keyword_mapping.items():
+                if summary_lower.startswith(kw):
+                    found_type = actual_type
+                    break
+            doc_types_count[found_type] = doc_types_count.get(found_type, 0) + 1
+            
+        return sorted(doc_types_count.items(), key=lambda x: x[1], reverse=True)
+
+    st.markdown("#### 📑 Phân loại Nhóm Văn bản (Tất cả đến & đi)")
+    sorted_all_types = count_doc_types(incoming_docs + outgoing_docs)
+    if sorted_all_types:
         num_cols = 4
         cols = st.columns(num_cols)
-        for i, (dtype, count) in enumerate(sorted_types):
+        for i, (dtype, count) in enumerate(sorted_all_types):
             with cols[i % num_cols]:
                 st.metric(label=f"Số lượng {dtype}", value=count)
     else:
         st.info("Chưa có dữ liệu để phân tích.")
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 📑 Phân loại Nhóm Văn bản đến (Theo Trích yếu)")
+    sorted_in_types = count_doc_types(incoming_docs)
+    if sorted_in_types:
+        num_cols = 4
+        cols = st.columns(num_cols)
+        for i, (dtype, count) in enumerate(sorted_in_types):
+            with cols[i % num_cols]:
+                st.metric(label=f"Số lượng {dtype}", value=count)
+    else:
+        st.info("Chưa có dữ liệu văn bản đến để phân tích.")
+        
 finally:
     conn.close()
