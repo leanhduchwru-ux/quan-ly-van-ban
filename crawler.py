@@ -33,38 +33,41 @@ SYSTEMS = [
 ]
 
 async def authenticate_and_save_session(config):
+    log_messages = []
     try:
         username = os.getenv(config['username_env'])
         password = os.getenv(config['password_env'])
 
         if not username or not password:
-            print(f"[{config['key']}] Missing credentials in .env or secrets.")
-            return False
+            return False, f"[{config['key']}] LỖI: Chưa cấu hình thông tin đăng nhập trong Secrets!"
+
+        # Install browser binary dynamically for Streamlit Cloud
+        os.system("playwright install chromium")
 
         async with async_playwright() as p:
-            print(f"[{config['key']}] Starting browser...")
+            log_messages.append(f"[{config['key']}] Bắt đầu mở trình duyệt ảo...")
             browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context()
+            context = await browser.new_context(ignore_https_errors=True)
             page = await context.new_page()
 
-            print(f"[{config['key']}] Navigating to login page...")
+            log_messages.append(f"[{config['key']}] Đang truy cập trang đăng nhập...")
             await page.goto(config['login_url'], wait_until='networkidle')
 
-            print(f"[{config['key']}] Filling credentials...")
+            log_messages.append(f"[{config['key']}] Đang điền tài khoản và mật khẩu...")
             await page.fill(config['username_selector'], username)
             await page.fill(config['password_selector'], password)
 
-            print(f"[{config['key']}] Submitting...")
+            log_messages.append(f"[{config['key']}] Bấm nút Đăng nhập...")
             async with page.expect_navigation(wait_until="networkidle"):
                 await page.click(config['submit_selector'])
 
             try:
                 await page.wait_for_selector(config['verify_selector'], timeout=5000)
-                print(f"[{config['key']}] Login successful!")
+                log_messages.append(f"[{config['key']}] Đăng nhập THÀNH CÔNG!")
             except Exception:
-                print(f"[{config['key']}] Login failed: could not find verification selector.")
+                log_messages.append(f"[{config['key']}] LỖI: Đăng nhập thất bại (Sai mật khẩu hoặc Selector sai).")
                 await browser.close()
-                return False
+                return False, "\n".join(log_messages)
 
             # Extract cookies
             cookies = await context.cookies()
@@ -72,19 +75,19 @@ async def authenticate_and_save_session(config):
             # Save to Database using raw sqlite3
             save_session(config['key'], cookies)
             
-            print(f"[{config['key']}] Session saved to database.")
+            log_messages.append(f"[{config['key']}] Đã lưu Cookie phiên đăng nhập.")
             await browser.close()
-            return True
+            return True, "\n".join(log_messages)
             
     except Exception as e:
-        print(f"[{config['key']}] Authentication error: {e}")
-        return False
+        return False, f"[{config['key']}] LỖI KỸ THUẬT: {e}"
 
 async def run_crawler():
-    print("--- Bắt đầu tiến trình Crawler Python ---")
+    results = []
     for sys in SYSTEMS:
-        await authenticate_and_save_session(sys)
-    print("--- Crawler Hoàn tất ---")
+        success, msg = await authenticate_and_save_session(sys)
+        results.append(msg)
+    return results
 
 if __name__ == "__main__":
     asyncio.run(run_crawler())

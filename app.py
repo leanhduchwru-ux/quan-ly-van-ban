@@ -113,9 +113,11 @@ with col_btn2:
 
 with col_btn3:
     if st.button("🚀 Chạy Crawler lấy dữ liệu thật", use_container_width=True):
-        with st.spinner("Đang khởi động trình duyệt ảo lấy dữ liệu (Mất khoảng 30s)..."):
-            asyncio.run(run_crawler())
-            st.success("Crawler đã chạy xong! Cookie đã được lưu.")
+        with st.spinner("Đang cài đặt và khởi động trình duyệt ảo (Mất khoảng 1-2 phút)..."):
+            results = asyncio.run(run_crawler())
+            st.success("Crawler đã chạy xong!")
+            for r in results:
+                st.info(r)
 
 
 st.markdown("---")
