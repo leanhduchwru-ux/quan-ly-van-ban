@@ -250,6 +250,15 @@ else:
         tasks = conn.execute("SELECT assignee FROM tasks WHERE document_id = ?", (rel['inc_id'],)).fetchall()
         assignees = ", ".join([t['assignee'] for t in tasks if t['assignee']]) if tasks else ""
         
+        status = rel['match_status']
+        display_status = status
+        if status == 'Đang nhận việc':
+            display_status = '🟡 Đang nhận việc'
+        elif status == 'Chưa có văn bản trả lời':
+            display_status = '🔴 Chưa có trả lời'
+        elif status == 'Có văn bản đi':
+            display_status = '🟢 Có văn bản đi'
+            
         data.append({
             "Văn bản đến": rel['inc_doc'],
             "ngày đến": rel['inc_date'] if rel['inc_date'] else "",
@@ -259,22 +268,22 @@ else:
             "VB đi": rel['out_doc'] if rel['out_doc'] else "",
             "Ngày gửi đi": rel['out_date'] if rel['out_date'] else "",
             "Nơi gửi đi": rel['out_agency'] if rel['out_agency'] else "",
-            "Trạng thái": rel['match_status']
+            "Trạng thái": display_status
         })
 conn.close()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Đang nhận việc", stats.get("Đang nhận việc", 0))
-col2.metric("Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
-col3.metric("Có văn bản đi", stats.get("Có văn bản đi", 0))
+col1.metric("🟡 Đang nhận việc", stats.get("Đang nhận việc", 0))
+col2.metric("🔴 Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
+col3.metric("🟢 Có văn bản đi", stats.get("Có văn bản đi", 0))
 
 st.markdown("### 📋 Bảng Kê Đối Chiếu Văn Bản")
 df = pd.DataFrame(data)
 
 def color_status(val):
-    if val == 'Đang nhận việc': return 'color: #ca8a04; background-color: #fef08a; font-weight: bold; padding: 4px; border-radius: 4px;'
-    elif val == 'Chưa có văn bản trả lời': return 'color: #991b1b; background-color: #fecaca; font-weight: bold; padding: 4px; border-radius: 4px;'
-    elif val == 'Có văn bản đi': return 'color: #166534; background-color: #bbf7d0; font-weight: bold; padding: 4px; border-radius: 4px;'
+    if 'Đang nhận việc' in str(val): return 'color: #eab308; font-weight: bold;'
+    elif 'Chưa có' in str(val): return 'color: #ef4444; font-weight: bold;'
+    elif 'Có văn bản đi' in str(val): return 'color: #22c55e; font-weight: bold;'
     return ''
     
 if not df.empty:
