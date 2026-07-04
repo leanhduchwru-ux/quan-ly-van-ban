@@ -3,6 +3,11 @@ import pandas as pd
 from database import get_connection
 import uuid
 import datetime
+import io
+import openpyxl
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.utils.dataframe import dataframe_to_rows
+import plotly.express as px
 
 st.set_page_config(page_title="Hệ Thống Quản Lý Văn Bản", page_icon="📄", layout="wide")
 
@@ -327,18 +332,128 @@ def color_status(val):
     elif 'Có văn bản đi' in str(val): return 'color: #22c55e; font-weight: bold;'
     return ''
 
-def render_table(title, data_list, stats):
-    st.markdown(f"### 📋 {title}")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("🟡 Đang nhận việc", stats.get("Đang nhận việc", 0))
-    c2.metric("🔴 Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
-    c3.metric("🟢 Có văn bản đi", stats.get("Có văn bản đi", 0))
+def generate_excel_report(df, system_name):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Báo Cáo"
+    
+    # Quốc hiệu tiêu ngữ
+    ws.merge_cells('A1:J1')
+    ws['A1'] = "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    ws['A1'].font = Font(name='Times New Roman', size=13, bold=True)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    ws.merge_cells('A2:J2')
+    ws['A2'] = "Độc lập - Tự do - Hạnh phúc"
+    ws['A2'].font = Font(name='Times New Roman', size=14, bold=True, underline='single')
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    ws.merge_cells('A4:J4')
+    ws['A4'] = f"BẢNG KÊ ĐỐI CHIẾU VĂN BẢN ĐẾN - {system_name}"
+    ws['A4'].font = Font(name='Times New Roman', size=14, bold=True)
+    ws['A4'].alignment = Alignment(horizontal='center')
+    
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    header_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
+    
+    # Headers
+    headers = list(df.columns)
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=6, column=col_num, value=header)
+        cell.font = Font(name='Times New Roman', size=12, bold=True)
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = thin_border
+        cell.fill = header_fill
+        
+    # Data
+    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=False), 7):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=r_idx, column=c_idx, value=value)
+            cell.font = Font(name='Times New Roman', size=12)
+            cell.border = thin_border
+            
+            # Wrap text for Trích yếu (cột 5)
+            if c_idx == 5:
+                cell.alignment = Alignment(wrap_text=True, vertical='top')
+            else:
+                cell.alignment = Alignment(vertical='top')
+                
+            # Color status (cột 10)
+            if c_idx == 10 and value:
+                if 'Đang nhận việc' in str(value):
+                    cell.font = Font(name='Times New Roman', size=12, color='CA8A04', bold=True)
+                elif 'Chưa có' in str(value):
+                    cell.font = Font(name='Times New Roman', size=12, color='DC2626', bold=True)
+                elif 'Có văn bản đi' in str(value):
+                    cell.font = Font(name='Times New Roman', size=12, color='16A34A', bold=True)
 
+    # Column widths
+    widths = [5, 15, 12, 20, 40, 15, 15, 12, 20, 20]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    output = io.BytesIO()
+    wb.save(output)
+    return output.getvalue()
+
+def render_table(title, data_list, stats, system_name):
+    st.markdown(f"### 📋 {title}")
+    
     df = pd.DataFrame(data_list)
-    if not df.empty:
-        df.insert(0, 'TT', range(1, 1 + len(df)))
+    if df.empty:
+        st.info("Chưa có dữ liệu.")
+        return
+
+    col_left, col_right = st.columns([2, 1])
+    
+    with col_left:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("🟡 Đang nhận việc", stats.get("Đang nhận việc", 0))
+        c2.metric("🔴 Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
+        c3.metric("🟢 Có văn bản đi", stats.get("Có văn bản đi", 0))
+
+        # Bộ lọc
+        f1, f2 = st.columns(2)
+        with f1:
+            status_options = ["Tất cả"] + list(df['Trạng thái'].unique())
+            selected_status = st.selectbox(f"Lọc Trạng thái ({system_name})", status_options, key=f"status_{system_name}")
+        with f2:
+            assignees_set = set()
+            for a in df['Người xử lý']:
+                if a:
+                    assignees_set.update([x.strip() for x in str(a).split(',') if x.strip()])
+            assignee_options = ["Tất cả"] + sorted(list(assignees_set))
+            selected_assignee = st.selectbox(f"Lọc Người xử lý ({system_name})", assignee_options, key=f"assignee_{system_name}")
+
+    with col_right:
+        chart_data = pd.DataFrame({
+            'Trạng thái': ['🟡 Đang nhận việc', '🔴 Chưa có trả lời', '🟢 Có văn bản đi'],
+            'Số lượng': [stats.get("Đang nhận việc", 0), stats.get("Chưa có văn bản trả lời", 0), stats.get("Có văn bản đi", 0)]
+        })
+        # Lọc bỏ các trạng thái = 0 để biểu đồ đẹp hơn
+        chart_data = chart_data[chart_data['Số lượng'] > 0]
+        if not chart_data.empty:
+            fig = px.pie(chart_data, values='Số lượng', names='Trạng thái', hole=0.5, 
+                         color='Trạng thái',
+                         color_discrete_map={
+                             '🟡 Đang nhận việc': '#eab308', 
+                             '🔴 Chưa có trả lời': '#ef4444', 
+                             '🟢 Có văn bản đi': '#22c55e'
+                         })
+            fig.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=True, legend=dict(orientation="h", y=-0.2))
+            st.plotly_chart(fig, use_container_width=True)
+
+    # Áp dụng bộ lọc
+    filtered_df = df.copy()
+    if selected_status != "Tất cả":
+        filtered_df = filtered_df[filtered_df['Trạng thái'] == selected_status]
+    if selected_assignee != "Tất cả":
+        filtered_df = filtered_df[filtered_df['Người xử lý'].str.contains(selected_assignee, na=False)]
+
+    if not filtered_df.empty:
+        filtered_df.insert(0, 'TT', range(1, 1 + len(filtered_df)))
         st.dataframe(
-            df.style.map(color_status, subset=['Trạng thái']),
+            filtered_df.style.map(color_status, subset=['Trạng thái']),
             use_container_width=True, 
             hide_index=True,
             column_order=["TT", "Văn bản đến", "ngày đến", "Nơi gửi đến", "Trích yếu", "Người xử lý", "VB đi", "Ngày gửi đi", "Nơi gửi đi", "Trạng thái"],
@@ -355,9 +470,18 @@ def render_table(title, data_list, stats):
                 "Trạng thái": st.column_config.TextColumn("Trạng thái (Hệ thống)", width="medium")
             }
         )
+        
+        excel_data = generate_excel_report(filtered_df, system_name)
+        st.download_button(
+            label=f"📥 Tải Xuống Báo Cáo Excel ({system_name})",
+            data=excel_data,
+            file_name=f"BaoCao_DoiChieu_{system_name}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"download_{system_name}"
+        )
     else:
-        st.info("Chưa có dữ liệu.")
+        st.warning("Không tìm thấy dữ liệu phù hợp với bộ lọc.")
 
-render_table("Bảng Thống Kê Đối Chiếu VB đến VOFFICE", data_voffice, stats_voffice)
+render_table("Bảng Thống Kê Đối Chiếu VB đến VOFFICE", data_voffice, stats_voffice, "VOFFICE")
 st.markdown("---")
-render_table("Bảng Thống Kê Đối Chiếu VB đến HPNET", data_hpnet, stats_hpnet)
+render_table("Bảng Thống Kê Đối Chiếu VB đến HPNET", data_hpnet, stats_hpnet, "HPNET")
