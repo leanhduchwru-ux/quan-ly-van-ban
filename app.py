@@ -188,7 +188,60 @@ def render_global_dashboard():
                         }, barmode='stack')
                     fig_stack.update_layout(margin=dict(t=20, b=20, l=0, r=0), legend=dict(orientation="h", y=-0.2))
                     st.plotly_chart(fig_stack, use_container_width=True)
+            # Phân tích Tồn đọng chuyên sâu
+            st.markdown("### 🕵️‍♂️ Phân Tích Tồn Đọng Chuyên Sâu")
+            
+            unanswered_docs = conn.execute('''
+                SELECT 
+                    i.content as system_name,
+                    i.document_no,
+                    i.summary,
+                    i.issued_date,
+                    t.assignee
+                FROM document_relations r
+                JOIN documents i ON r.incoming_id = i.id
+                JOIN tasks t ON r.incoming_id = t.document_id
+                WHERE r.match_status LIKE '%Chưa có%'
+            ''').fetchall()
 
+            if unanswered_docs:
+                pending_df = pd.DataFrame(unanswered_docs, columns=['Hệ thống', 'Ký hiệu', 'Trích yếu', 'Ngày đến', 'Người xử lý'])
+                
+                assignees_set = set()
+                for a in pending_df['Người xử lý']:
+                    if a:
+                        assignees_set.update([x.strip() for x in str(a).split(',') if x.strip()])
+                
+                f_col1, f_col2 = st.columns([1, 2])
+                with f_col1:
+                    selected_assignee = st.selectbox("Tra cứu văn bản nợ đọng theo Cá nhân/Đơn vị:", ["Tất cả"] + sorted(list(assignees_set)))
+                
+                filtered_pending = pending_df.copy()
+                if selected_assignee != "Tất cả":
+                    filtered_pending = filtered_pending[filtered_pending['Người xử lý'].str.contains(selected_assignee, na=False)]
+                
+                if not filtered_pending.empty:
+                    filtered_pending.insert(0, 'TT', range(1, 1 + len(filtered_pending)))
+                    
+                    def color_pending(val):
+                        return 'color: #ef4444; font-weight: bold;'
+                        
+                    st.dataframe(
+                        filtered_pending.style.map(color_pending, subset=['Ký hiệu']),
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "TT": st.column_config.NumberColumn("TT", width="small"),
+                            "Hệ thống": st.column_config.TextColumn("Hệ thống", width="small"),
+                            "Ký hiệu": st.column_config.TextColumn("Ký hiệu", width="medium"),
+                            "Trích yếu": st.column_config.TextColumn("Trích yếu", width="large"),
+                            "Ngày đến": st.column_config.TextColumn("Ngày đến", width="small"),
+                            "Người xử lý": st.column_config.TextColumn("Người xử lý", width="medium")
+                        }
+                    )
+                else:
+                    st.info("Không có văn bản nợ đọng cho cá nhân/đơn vị này.")
+                    
             st.markdown("---")
     finally:
         conn.close()
@@ -218,7 +271,7 @@ def match_documents(system_name=None):
                 matched_out_id = matched_out['id']
             else:
                 summary_lower = str(incoming['summary']).lower() if incoming['summary'] else ""
-                exclusion_keywords = ['thông báo', 'giấy mời', 'tuyên truyền', 'phổ biến', 'tin buồn', 'họp', 'để biết', 'gửi tài liệu', 'triệu tập']
+                exclusion_keywords = ['thông báo', 'giấy mời', 'tuyên truyền', 'phổ biến', 'tin buồn', 'họp', 'để biết', 'gửi tài liệu', 'triệu tập', 'quán triệt']
                 
                 is_info_only = any(kw in summary_lower for kw in exclusion_keywords)
                 
