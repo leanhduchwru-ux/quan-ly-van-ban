@@ -149,35 +149,49 @@ def process_uploaded_file(file, doc_type, system_name):
             return 0, 0
     return 0, 0
 
-col_up1, col_up2 = st.columns(2)
+with st.form("upload_form"):
+    col_up1, col_up2 = st.columns(2)
 
-with col_up1:
-    st.info("📥 VĂN BẢN ĐẾN")
-    file_in_voffice = st.file_uploader("Kéo thả file Văn bản đến - VOFFICE", type=["xlsx", "xls"], key="in_voffice")
+    with col_up1:
+        st.info("📥 VĂN BẢN ĐẾN")
+        file_in_voffice = st.file_uploader("Kéo thả file Văn bản đến - VOFFICE", type=["xlsx", "xls"], key="in_voffice")
+        file_in_hpnet = st.file_uploader("Kéo thả file Văn bản đến - HPNET", type=["xlsx", "xls"], key="in_hpnet")
+
+    with col_up2:
+        st.info("📤 VĂN BẢN ĐI")
+        file_out_voffice = st.file_uploader("Kéo thả file Văn bản đi - VOFFICE", type=["xlsx", "xls"], key="out_voffice")
+        file_out_hpnet = st.file_uploader("Kéo thả file Văn bản đi - HPNET", type=["xlsx", "xls"], key="out_hpnet")
+        
+    submit_btn = st.form_submit_button("🚀 Cập nhật dữ liệu Upload")
+
+if submit_btn:
+    has_file = False
     if file_in_voffice:
-        with st.spinner("Đang xử lý VOFFICE..."):
+        has_file = True
+        with st.spinner("Đang xử lý VOFFICE (Đến)..."):
             c, raw = process_uploaded_file(file_in_voffice, 'INCOMING', 'VOFFICE')
             st.success(f"Đã nạp {c} văn bản đến VOFFICE (từ tổng số {raw} dòng trong file)!")
             
-    file_in_hpnet = st.file_uploader("Kéo thả file Văn bản đến - HPNET", type=["xlsx", "xls"], key="in_hpnet")
     if file_in_hpnet:
-        with st.spinner("Đang xử lý HPNET..."):
+        has_file = True
+        with st.spinner("Đang xử lý HPNET (Đến)..."):
             c, raw = process_uploaded_file(file_in_hpnet, 'INCOMING', 'HPNET')
             st.success(f"Đã nạp {c} văn bản đến HPNET (từ tổng số {raw} dòng trong file)!")
-
-with col_up2:
-    st.info("📤 VĂN BẢN ĐI")
-    file_out_voffice = st.file_uploader("Kéo thả file Văn bản đi - VOFFICE", type=["xlsx", "xls"], key="out_voffice")
+            
     if file_out_voffice:
-        with st.spinner("Đang xử lý VOFFICE..."):
+        has_file = True
+        with st.spinner("Đang xử lý VOFFICE (Đi)..."):
             c, raw = process_uploaded_file(file_out_voffice, 'OUTGOING', 'VOFFICE')
             st.success(f"Đã nạp {c} văn bản đi VOFFICE (từ tổng số {raw} dòng trong file)!")
             
-    file_out_hpnet = st.file_uploader("Kéo thả file Văn bản đi - HPNET", type=["xlsx", "xls"], key="out_hpnet")
     if file_out_hpnet:
-        with st.spinner("Đang xử lý HPNET..."):
+        has_file = True
+        with st.spinner("Đang xử lý HPNET (Đi)..."):
             c, raw = process_uploaded_file(file_out_hpnet, 'OUTGOING', 'HPNET')
             st.success(f"Đã nạp {c} văn bản đi HPNET (từ tổng số {raw} dòng trong file)!")
+            
+    if not has_file:
+        st.warning("Vui lòng tải lên ít nhất một file Excel trước khi nhấn Cập nhật!")
 
 st.markdown("---")
 st.markdown("### 🗃️ Dữ liệu Voffice + Hpnet (Đã loại trừ trùng lặp)")
