@@ -264,7 +264,21 @@ def match_documents(system_name=None):
             matched_out_id = None
             
             # Match
-            matched_out = next((out for out in outgoing_docs if incoming['document_no'] in (out['summary'] or '') or (out['content'] and incoming['document_no'] in out['content'])), None)
+            def is_matched(inc, out):
+                inc_no = str(inc['document_no']).strip().lower()
+                out_sum = str(out['summary']).strip().lower() if out['summary'] else ""
+                inc_sum = str(inc['summary']).strip().lower() if inc['summary'] else ""
+                
+                if inc_no and inc_no != 'nan' and inc_no in out_sum:
+                    return True
+                
+                if inc_sum and out_sum:
+                    if inc_sum == out_sum or inc_sum in out_sum or out_sum in inc_sum:
+                        return True
+                        
+                return False
+
+            matched_out = next((out for out in outgoing_docs if is_matched(incoming, out)), None)
             
             if matched_out:
                 current_status = "Có văn bản đi"
