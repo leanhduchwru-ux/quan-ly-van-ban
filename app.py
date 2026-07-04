@@ -525,85 +525,35 @@ def generate_excel_report(df, system_name):
     wb.save(output)
     return output.getvalue()
 
-def render_dashboard_section(title, data_list, stats, system_name):
-    st.markdown(f"### 📈 {title}")
+    # Bổ sung nút tải báo cáo ngay dưới dữ liệu
+    st.markdown("### 📥 TẢI BÁO CÁO CHI TIẾT")
+    st.info("Sử dụng các nút bên dưới để tải bảng kê chi tiết toàn bộ văn bản của từng hệ thống ra file Excel.")
+    btn_col1, btn_col2 = st.columns(2)
     
-    df = pd.DataFrame(data_list)
-    if df.empty:
-        st.info("Chưa có dữ liệu.")
-        return
-
-    # Metrics row
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🟡 Đang nhận", stats.get("Đang nhận việc", 0))
-    c2.metric("🔴 Chưa trả lời", stats.get("Chưa có văn bản trả lời", 0))
-    c3.metric("🟢 Có VB đi", stats.get("Có văn bản đi", 0))
-    c4.metric("🔵 Để biết", stats.get("Nhận để biết (Không cần trả lời)", 0))
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Charts row
-    col_chart1, col_chart2 = st.columns(2)
-    
-    with col_chart1:
-        st.markdown("**Tỷ lệ trạng thái văn bản**")
-        chart_data = pd.DataFrame({
-            'Trạng thái': ['🟡 Đang nhận việc', '🔴 Chưa có trả lời', '🟢 Có văn bản đi', '🔵 Nhận để biết'],
-            'Số lượng': [
-                stats.get("Đang nhận việc", 0), 
-                stats.get("Chưa có văn bản trả lời", 0), 
-                stats.get("Có văn bản đi", 0),
-                stats.get("Nhận để biết (Không cần trả lời)", 0)
-            ]
-        })
-        chart_data = chart_data[chart_data['Số lượng'] > 0]
-        if not chart_data.empty:
-            fig1 = px.pie(chart_data, values='Số lượng', names='Trạng thái', hole=0.5, 
-                         color='Trạng thái',
-                         color_discrete_map={
-                             '🟡 Đang nhận việc': '#eab308', 
-                             '🔴 Chưa có trả lời': '#ef4444', 
-                             '🟢 Có văn bản đi': '#22c55e',
-                             '🔵 Nhận để biết': '#3b82f6'
-                         })
-            fig1.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=True, legend=dict(orientation="h", y=-0.2))
-            st.plotly_chart(fig1, use_container_width=True)
-
-    with col_chart2:
-        st.markdown("**Top 10 cá nhân/đơn vị tồn đọng (Chưa có trả lời)**")
-        unanswered_df = df[df['Trạng thái'] == "Chưa có văn bản trả lời"]
-        if not unanswered_df.empty:
-            assignee_counts = {}
-            for a in unanswered_df['Người xử lý']:
-                if a:
-                    for person in str(a).split(','):
-                        p = person.strip()
-                        if p:
-                            assignee_counts[p] = assignee_counts.get(p, 0) + 1
+    with btn_col1:
+        if data_voffice:
+            df_voffice = pd.DataFrame(data_voffice)
+            df_voffice.insert(0, 'TT', range(1, 1 + len(df_voffice)))
+            excel_data_voffice = generate_excel_report(df_voffice, "VOFFICE")
+            st.download_button(
+                label=f"📥 TẢI XUỐNG BÁO CÁO VOFFICE",
+                data=excel_data_voffice,
+                file_name=f"BaoCao_DoiChieu_VOFFICE.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"download_VOFFICE",
+                use_container_width=True
+            )
             
-            if assignee_counts:
-                bar_data = pd.DataFrame(list(assignee_counts.items()), columns=['Người xử lý', 'Số lượng'])
-                bar_data = bar_data.sort_values(by='Số lượng', ascending=False).head(10)
-                fig2 = px.bar(bar_data, x='Số lượng', y='Người xử lý', orientation='h', color_discrete_sequence=['#ef4444'])
-                fig2.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=20, b=20, l=0, r=0))
-                st.plotly_chart(fig2, use_container_width=True)
-            else:
-                st.success("Tuyệt vời! Không có cá nhân nào bị tồn đọng việc.")
-        else:
-            st.success("Tuyệt vời! Không có văn bản nào bị tồn đọng.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    df.insert(0, 'TT', range(1, 1 + len(df)))
-    excel_data = generate_excel_report(df, system_name)
-    st.download_button(
-        label=f"📥 TẢI XUỐNG BÁO CÁO EXCEL TRỌN BỘ ({system_name})",
-        data=excel_data,
-        file_name=f"BaoCao_DoiChieu_{system_name}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key=f"download_{system_name}",
-        use_container_width=True
-    )
-
-render_dashboard_section("Dashboard Phân Tích VOFFICE", data_voffice, stats_voffice, "VOFFICE")
-st.markdown("---")
-render_dashboard_section("Dashboard Phân Tích HPNET", data_hpnet, stats_hpnet, "HPNET")
+    with btn_col2:
+        if data_hpnet:
+            df_hpnet = pd.DataFrame(data_hpnet)
+            df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
+            excel_data_hpnet = generate_excel_report(df_hpnet, "HPNET")
+            st.download_button(
+                label=f"📥 TẢI XUỐNG BÁO CÁO HPNET",
+                data=excel_data_hpnet,
+                file_name=f"BaoCao_DoiChieu_HPNET.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"download_HPNET",
+                use_container_width=True
+            )
