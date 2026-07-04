@@ -33,6 +33,28 @@ st.markdown("""
 
 st.title("Hệ Thống Quản Lý Văn Bản Điều Hành")
 
+# Tự động hiển thị Global Dashboard
+def render_global_dashboard():
+    conn = get_connection()
+    try:
+        total_in = conn.execute("SELECT COUNT(*) FROM documents WHERE type = 'INCOMING'").fetchone()[0]
+        total_out = conn.execute("SELECT COUNT(*) FROM documents WHERE type = 'OUTGOING'").fetchone()[0]
+        
+        # Số lượng tồn đọng thực sự (bỏ qua 'Có văn bản đi' và 'Nhận để biết')
+        pending = conn.execute("SELECT COUNT(*) FROM document_relations WHERE match_status LIKE '%Chưa có%'").fetchone()[0]
+        
+        if total_in > 0 or total_out > 0:
+            st.markdown("### 📊 Tổng Quan Toàn Hệ Thống")
+            g1, g2, g3 = st.columns(3)
+            g1.metric("📥 Tổng số Văn bản đến", total_in)
+            g2.metric("📤 Tổng số Văn bản đi", total_out)
+            g3.metric("🔥 Tồn đọng cần xử lý", pending, delta="Cảnh báo", delta_color="inverse")
+            st.markdown("---")
+    finally:
+        conn.close()
+
+render_global_dashboard()
+
 def match_documents(system_name=None):
     conn = get_connection()
     try:
@@ -55,14 +77,22 @@ def match_documents(system_name=None):
                 current_status = "Có văn bản đi"
                 matched_out_id = matched_out['id']
             else:
-                is_overdue = incoming['deadline'] and datetime.datetime.now() > datetime.datetime.fromisoformat(incoming['deadline'])
-                tasks = conn.execute("SELECT * FROM tasks WHERE document_id = ?", (incoming['id'],)).fetchall()
-                has_pending = any(t['status'] != 'Hoàn thành' for t in tasks)
+                summary_lower = str(incoming['summary']).lower() if incoming['summary'] else ""
+                exclusion_keywords = ['thông báo', 'giấy mời', 'tuyên truyền', 'phổ biến', 'tin buồn', 'họp', 'để biết', 'gửi tài liệu', 'triệu tập']
                 
-                if is_overdue or (not has_pending and len(tasks) > 0):
-                    current_status = "Chưa có văn bản trả lời"
+                is_info_only = any(kw in summary_lower for kw in exclusion_keywords)
+                
+                if is_info_only:
+                    current_status = "Nhận để biết (Không cần trả lời)"
                 else:
-                    current_status = "Đang nhận việc"
+                    is_overdue = incoming['deadline'] and datetime.datetime.now() > datetime.datetime.fromisoformat(incoming['deadline'])
+                    tasks = conn.execute("SELECT * FROM tasks WHERE document_id = ?", (incoming['id'],)).fetchall()
+                    has_pending = any(t['status'] != 'Hoàn thành' for t in tasks)
+                    
+                    if is_overdue or (not has_pending and len(tasks) > 0):
+                        current_status = "Chưa có văn bản trả lời"
+                    else:
+                        current_status = "Đang nhận việc"
             
             relation = conn.execute("SELECT id FROM document_relations WHERE incoming_id = ?", (incoming['id'],)).fetchone()
             if not relation:
@@ -284,8 +314,9 @@ relations = conn.execute('''
 
 data_voffice = []
 data_hpnet = []
-stats_voffice = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
-stats_hpnet = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0}
+stats_voffice = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0, "Nhận để biết (Không cần trả lời)": 0}
+data_hpnet = []
+stats_hpnet = {"Đang nhận việc": 0, "Chưa có văn bản trả lời": 0, "Có văn bản đi": 0, "Nhận để biết (Không cần trả lời)": 0}
 
 if len(relations) == 0:
     doc_count = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
@@ -338,6 +369,7 @@ def color_status(val):
     if 'Đang nhận việc' in str(val): return 'color: #eab308; font-weight: bold;'
     elif 'Chưa có' in str(val): return 'color: #ef4444; font-weight: bold;'
     elif 'Có văn bản đi' in str(val): return 'color: #22c55e; font-weight: bold;'
+    elif 'Nhận để biết' in str(val): return 'color: #3b82f6; font-weight: bold;'
     return ''
 
 def generate_excel_report(df, system_name):
@@ -394,6 +426,8 @@ def generate_excel_report(df, system_name):
                     cell.font = Font(name='Times New Roman', size=12, color='DC2626', bold=True)
                 elif 'Có văn bản đi' in str(value):
                     cell.font = Font(name='Times New Roman', size=12, color='16A34A', bold=True)
+                elif 'Nhận để biết' in str(value):
+                    cell.font = Font(name='Times New Roman', size=12, color='2563EB', bold=True)
 
     # Column widths
     widths = [5, 15, 12, 20, 40, 15, 15, 12, 20, 20]
@@ -415,10 +449,11 @@ def render_table(title, data_list, stats, system_name):
     col_left, col_right = st.columns([2, 1])
     
     with col_left:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("🟡 Đang nhận việc", stats.get("Đang nhận việc", 0))
-        c2.metric("🔴 Chưa có VB trả lời", stats.get("Chưa có văn bản trả lời", 0))
-        c3.metric("🟢 Có văn bản đi", stats.get("Có văn bản đi", 0))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("🟡 Đang nhận", stats.get("Đang nhận việc", 0))
+        c2.metric("🔴 Chưa trả lời", stats.get("Chưa có văn bản trả lời", 0))
+        c3.metric("🟢 Có VB đi", stats.get("Có văn bản đi", 0))
+        c4.metric("🔵 Để biết", stats.get("Nhận để biết (Không cần trả lời)", 0))
 
         # Bộ lọc
         f1, f2 = st.columns(2)
@@ -435,8 +470,13 @@ def render_table(title, data_list, stats, system_name):
 
     with col_right:
         chart_data = pd.DataFrame({
-            'Trạng thái': ['🟡 Đang nhận việc', '🔴 Chưa có trả lời', '🟢 Có văn bản đi'],
-            'Số lượng': [stats.get("Đang nhận việc", 0), stats.get("Chưa có văn bản trả lời", 0), stats.get("Có văn bản đi", 0)]
+            'Trạng thái': ['🟡 Đang nhận việc', '🔴 Chưa có trả lời', '🟢 Có văn bản đi', '🔵 Nhận để biết'],
+            'Số lượng': [
+                stats.get("Đang nhận việc", 0), 
+                stats.get("Chưa có văn bản trả lời", 0), 
+                stats.get("Có văn bản đi", 0),
+                stats.get("Nhận để biết (Không cần trả lời)", 0)
+            ]
         })
         # Lọc bỏ các trạng thái = 0 để biểu đồ đẹp hơn
         chart_data = chart_data[chart_data['Số lượng'] > 0]
@@ -446,7 +486,8 @@ def render_table(title, data_list, stats, system_name):
                          color_discrete_map={
                              '🟡 Đang nhận việc': '#eab308', 
                              '🔴 Chưa có trả lời': '#ef4444', 
-                             '🟢 Có văn bản đi': '#22c55e'
+                             '🟢 Có văn bản đi': '#22c55e',
+                             '🔵 Nhận để biết': '#3b82f6'
                          })
             fig.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=True, legend=dict(orientation="h", y=-0.2))
             st.plotly_chart(fig, use_container_width=True)
