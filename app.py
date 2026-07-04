@@ -154,7 +154,7 @@ def process_uploaded_file(file, doc_type):
                     if doc_number and doc_number.lower() not in ['nan', 'none', '']:
                         if doc_number not in existing_docs:
                             doc_id = str(uuid.uuid4())
-                            conn.execute("INSERT INTO documents (id, type, document_no, date, agency, summary) VALUES (?, ?, ?, ?, ?, ?)",
+                            conn.execute("INSERT INTO documents (id, type, document_no, issued_date, system_source, summary) VALUES (?, ?, ?, ?, ?, ?)",
                                          (doc_id, doc_type, doc_number, doc_date, agency, summary))
                             
                             # Xử lý bóc tách Người xử lý (Lấy chính xác người liền sau Trương Mạnh Tiến)
@@ -225,12 +225,12 @@ relations = conn.execute('''
     SELECT 
         r.match_status,
         i.document_no as inc_doc,
-        i.date as inc_date,
-        i.agency as inc_agency,
+        i.issued_date as inc_date,
+        i.system_source as inc_agency,
         i.summary as inc_summary,
         o.document_no as out_doc,
-        o.date as out_date,
-        o.agency as out_agency,
+        o.issued_date as out_date,
+        o.system_source as out_agency,
         i.id as inc_id
     FROM document_relations r
     JOIN documents i ON r.incoming_id = i.id
