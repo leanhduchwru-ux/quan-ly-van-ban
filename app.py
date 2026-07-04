@@ -641,61 +641,61 @@ def generate_excel_report(df, system_name):
     wb.save(output)
     return output.getvalue()
 
-    # Bổ sung nút tải báo cáo ngay dưới dữ liệu
-    st.markdown("### 📥 TẢI BÁO CÁO CHI TIẾT")
-    st.info("Sử dụng các nút bên dưới để tải bảng kê chi tiết toàn bộ văn bản của từng hệ thống ra file Excel.")
-    btn_col1, btn_col2 = st.columns(2)
-    
-    with btn_col1:
-        if data_voffice:
-            df_voffice = pd.DataFrame(data_voffice)
-            df_voffice.insert(0, 'TT', range(1, 1 + len(df_voffice)))
-            excel_data_voffice = generate_excel_report(df_voffice, "VOFFICE")
-            st.download_button(
-                label=f"📥 TẢI XUỐNG BÁO CÁO VOFFICE",
-                data=excel_data_voffice,
-                file_name=f"BaoCao_DoiChieu_VOFFICE.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"download_VOFFICE",
-                use_container_width=True
-            )
-            
-    with btn_col2:
-        if data_hpnet:
-            df_hpnet = pd.DataFrame(data_hpnet)
-            df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
-            excel_data_hpnet = generate_excel_report(df_hpnet, "HPNET")
-            st.download_button(
-                label=f"📥 TẢI XUỐNG BÁO CÁO HPNET",
-                data=excel_data_hpnet,
-                file_name=f"BaoCao_DoiChieu_HPNET.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"download_HPNET",
-                use_container_width=True
-            )
+# Bổ sung nút tải báo cáo ngay dưới dữ liệu
+st.markdown("### 📥 TẢI BÁO CÁO CHI TIẾT")
+st.info("Sử dụng các nút bên dưới để tải bảng kê chi tiết toàn bộ văn bản của từng hệ thống ra file Excel.")
+btn_col1, btn_col2 = st.columns(2)
 
-    st.markdown("---")
-    st.markdown("### 🐙 ĐỒNG BỘ GIAO VIỆC LÊN GITHUB KANBAN")
-    st.info("Tự động hóa luồng giao việc: Hệ thống sẽ tự động quét danh sách Tồn đọng và khởi tạo các thẻ công việc (Issues) tương ứng trên bảng Kanban của GitHub để đôn đốc.")
-    
-    gh_col1, gh_col2 = st.columns([3, 1])
-    with gh_col1:
-        gh_token = st.text_input("Nhập mã Personal Access Token (PAT) của GitHub:", type="password", help="Mã Token bắt đầu bằng 'ghp_'. Cần có quyền 'repo' và 'project'.")
-    
-    with gh_col2:
-        st.markdown("<br>", unsafe_allow_html=True) # Spacer
-        if st.button("🚀 Đẩy Tồn đọng lên GitHub", use_container_width=True, type="primary"):
-            if not gh_token:
-                st.error("Vui lòng nhập mã Token!")
-            else:
-                with st.spinner("Đang kết nối GitHub và tạo thẻ công việc..."):
-                    try:
-                        import github_sync
-                        success, msg = github_sync.sync_to_github(token=gh_token)
-                        if success:
-                            st.success(msg)
-                            st.balloons()
-                        else:
-                            st.error(msg)
-                    except Exception as e:
-                        st.error(f"Lỗi hệ thống khi chạy kịch bản: {str(e)}")
+with btn_col1:
+    if data_voffice:
+        df_voffice = pd.DataFrame(data_voffice)
+        df_voffice.insert(0, 'TT', range(1, 1 + len(df_voffice)))
+        excel_data_voffice = generate_excel_report(df_voffice, "VOFFICE")
+        st.download_button(
+            label=f"📥 TẢI XUỐNG BÁO CÁO VOFFICE",
+            data=excel_data_voffice,
+            file_name=f"BaoCao_DoiChieu_VOFFICE.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"download_VOFFICE",
+            use_container_width=True
+        )
+        
+with btn_col2:
+    if data_hpnet:
+        df_hpnet = pd.DataFrame(data_hpnet)
+        df_hpnet.insert(0, 'TT', range(1, 1 + len(df_hpnet)))
+        excel_data_hpnet = generate_excel_report(df_hpnet, "HPNET")
+        st.download_button(
+            label=f"📥 TẢI XUỐNG BÁO CÁO HPNET",
+            data=excel_data_hpnet,
+            file_name=f"BaoCao_DoiChieu_HPNET.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"download_HPNET",
+            use_container_width=True
+        )
+
+st.markdown("---")
+st.markdown("### 🐙 ĐỒNG BỘ GIAO VIỆC LÊN GITHUB KANBAN")
+st.info("Tự động hóa luồng giao việc: Hệ thống sẽ tự động quét danh sách Tồn đọng và khởi tạo các thẻ công việc (Issues) tương ứng trên bảng Kanban của GitHub để đôn đốc.")
+
+gh_col1, gh_col2 = st.columns([3, 1])
+with gh_col1:
+    gh_token = st.text_input("Nhập mã Personal Access Token (PAT) của GitHub:", type="password", help="Mã Token bắt đầu bằng 'ghp_'. Cần có quyền 'repo' và 'project'.")
+
+with gh_col2:
+    st.markdown("<br>", unsafe_allow_html=True) # Spacer
+    if st.button("🚀 Đẩy Tồn đọng lên GitHub", use_container_width=True, type="primary"):
+        if not gh_token:
+            st.error("Vui lòng nhập mã Token!")
+        else:
+            with st.spinner("Đang kết nối GitHub và tạo thẻ công việc..."):
+                try:
+                    import github_sync
+                    success, msg = github_sync.sync_to_github(token=gh_token)
+                    if success:
+                        st.success(msg)
+                        st.balloons()
+                    else:
+                        st.error(msg)
+                except Exception as e:
+                    st.error(f"Lỗi hệ thống khi chạy kịch bản: {str(e)}")
